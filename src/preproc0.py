@@ -142,5 +142,3 @@ def process_raw_lines_maestria(raw_lines: list[str]):
     print(f"output has {len(out_lines)} lines {total_chars_out} chars, skip_counts: {skip_counts}")
 
     return out_lines
-
-out_lines = process_raw_lines_maestria(raw_lines_maestria)
