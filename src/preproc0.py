@@ -1,0 +1,146 @@
+import re
+from collections import Counter
+
+def process_raw_lines_estatutos(raw_lines: list[str]):
+    """Preprocess raw text file:
+      data/Estatutos-Universidad-de-los-Andes-2020-ratificados-MEN-RQ.raw.txt
+      that was obtained via online conversion of PDF file of same name
+    """
+    total_chars_in = sum(len(line) for line in raw_lines)
+    print(f"input has {len(raw_lines)} lines, {total_chars_in} chars")
+
+    skip_counts = Counter()
+    current_line = ""
+    out_lines = []
+    for i, line in enumerate(raw_lines):
+        if line == "":
+            out_lines.append(line)
+            continue
+
+        if line.startswith("\x0c"):
+            # print(f"skipping special line {i}: `{line}`")
+            skip_counts["special line \x0c"] += 1
+        elif re.search("^[0-9]+\.", line):
+            out_lines.append(current_line)
+            current_line = line
+        elif re.match("^Artículo +[0-9]+(.º)?$", line): # <h3>
+            out_lines.append(current_line)
+            out_lines.append(f"\n## {line}")
+            current_line = ""
+        elif re.match("^CAPÍTULO +[XVILCM]+$", line): # <h2>
+            out_lines.append(current_line)
+            out_lines.append(f"\n\n# {line}")
+            current_line = ""
+
+        elif line.strip()=="UNIVERSIDAD DE LOS ANDES":
+            skip_counts["UNIVERSIDAD DE LOS ANDES"] += 1
+            continue
+        elif re.match("^[0-9]+$", line):
+            skip_counts["single-number-line"] += 1
+        elif line[0].lower() == line[0]:
+            if current_line.endswith('-'):
+                # continuación de palabra, quitamos el guin final
+                current_line = current_line[:-1] + line
+            else:
+                # nueva palabra en nueva línea
+                current_line += f" {line}"
+
+        elif line.upper() == line: ## all caps
+            out_lines.append(current_line)
+            out_lines.append(f"## {line}")
+            current_line = ""
+        elif line[0].upper() == line[0]: ## first letter is upper
+            out_lines.append(current_line)
+            current_line = line
+        else:
+            print(f"\n{i:4d}>>", line)
+        continue
+
+    out_lines.append(current_line)
+
+    total_chars_out = sum(len(line) for line in out_lines)
+    print(f"output has {len(out_lines)} lines {total_chars_out} chars, skip_counts: {skip_counts}")
+
+    return out_lines
+
+
+
+def process_raw_lines_maestria(raw_lines: list[str]):
+    """Preprocess raw text file: data/reglamento-maestria-web-2024.raw.txt
+    that was obtained via online conversion of PDF file of same name
+    """
+    total_chars_in = sum(len(line) for line in raw_lines)
+    print(f"input has {len(raw_lines)} lines, {total_chars_in} chars")
+
+    skip_counts = Counter()
+    skipped_x0c: set[str] = set()
+    current_line: str = ""
+    out_lines: list[str] = []
+
+    for i, line in enumerate(raw_lines):
+        if line == "":
+            out_lines.append(line)
+            continue
+
+        if line.startswith("\x0c"):
+            clean_line = line.replace('\x0c', '')
+
+            if re.match("^[0-9]+$", clean_line): # just a page number?
+                skip_counts["\x0c-page-number"] += 1
+            # elif line not in x0c_headers: # first time seen
+            #    x0c_headers.add(line)
+            #    out_lines.extend([current_line, "\n"])
+            #    out_lines.append(f"## {clean_line}")
+            #    current_line = ""
+            else: # not first time seen, skip:
+                skipped_x0c.add(line)
+                skip_counts["\x0c"] += 1
+                print(f"skipping x0c-line: {line}")
+
+        elif re.search("^[0-9]+\.", line):
+            out_lines.extend([current_line, "\n"])
+            current_line = line
+        elif re.search("^[a-z]+\)", line):
+            out_lines.append(current_line)
+            current_line = line
+        elif re.search("^\xff?Artículo +[0-9]+(.º)?$", line): # <h3>
+            out_lines.extend([current_line, "\n"])
+            out_lines.append(f"\n## {line}")
+            current_line = ""
+        elif re.search("^\xff?CAPÍTULO +[XVILCM]+", line): # <h2>
+            out_lines.append(current_line)
+            out_lines.append(f"\n\n# {line}")
+            current_line = ""
+
+        elif line.strip()=="UNIVERSIDAD DE LOS ANDES":
+            skip_counts["UNIVERSIDAD DE LOS ANDES"] += 1
+            continue
+        elif re.match("^[0-9]+$", line):
+            skip_counts["single-number-line"] += 1
+        elif line[0].lower() == line[0]:
+            if current_line.endswith('-'):
+                # continuación de palabra, quitamos el guin final
+                current_line = current_line[:-1] + line
+            else:
+                # nueva palabra en nueva línea
+                current_line += f" {line}"
+
+        elif line.upper() == line: ## all caps
+            out_lines.append(current_line)
+            out_lines.append(f"## {line}")
+            current_line = ""
+        elif line[0].upper() == line[0]: ## first letter is upper
+            out_lines.append(current_line)
+            current_line = line
+        else:
+            print(f"\n{i:4d}>>", line)
+        continue
+
+    out_lines.append(current_line)
+
+    total_chars_out = sum(len(line) for line in out_lines)
+    print(f"output has {len(out_lines)} lines {total_chars_out} chars, skip_counts: {skip_counts}")
+
+    return out_lines
+
+out_lines = process_raw_lines_maestria(raw_lines_maestria)
