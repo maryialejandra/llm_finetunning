@@ -5,3 +5,5 @@ data/reglamento-maestria-web-2024.raw.txt filter=lfs diff=lfs merge=lfs -text
 data/Estatutos-Universidad-de-los-Andes-2020-ratificados-MEN.pdf filter=lfs diff=lfs merge=lfs -text
 data/reglamento-maestria-web-2024.pdf filter=lfs diff=lfs merge=lfs -text
 data/test_uniandes.csv filter=lfs diff=lfs merge=lfs -text
+data/Estatutos-Universidad-de-los-Andes-2020-ratificados-MEN-RQ.translated.txt filter=lfs diff=lfs merge=lfs -text
+data/reglamento-maestria-web-2024.translated.txt filter=lfs diff=lfs merge=lfs -text
