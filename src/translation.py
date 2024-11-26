@@ -1,5 +1,7 @@
 import time
 import src.auth_utils as au
+
+from pathlib import Path
 from groq import Groq
 
 class GroqTranslator:
@@ -65,3 +67,17 @@ class GroqTranslator:
         print(f"English translation: {translation_text[0:45]}...{translation_text[-45:]}")
 
         return translation_text.strip("'")
+
+
+def translate_file(file_prefix: str, translator: GroqTranslator) -> None:
+    input_lines = Path(f"../data/{file_prefix}.preprocessed.txt").read_text().split("\n")
+    print(f"{len(input_lines)} input lines ")
+    n_lines = len(input_lines)
+
+    out_path = Path(f"../data/{file_prefix}.translated.txt")
+    print(f"Translated text will be written to: {out_path}")
+    with out_path.open("wt") as f_out:
+        for i, line in enumerate(input_lines):
+            print(f"{i+1:4d} / {n_lines} ({100.0 * (i+1)/n_lines:.1f}%)")
+            line_translation = translator.translate(line)
+            print(line_translation, file=f_out, flush=True)
