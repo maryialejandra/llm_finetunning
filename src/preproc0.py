@@ -142,3 +142,48 @@ def process_raw_lines_maestria(raw_lines: list[str]):
     print(f"output has {len(out_lines)} lines {total_chars_out} chars, skip_counts: {skip_counts}")
 
     return out_lines
+
+
+def squeeze_blank_lines(lines: list[str], n: int = 2) -> list[str]:
+    """Squeeze segments of n or more consecutive blank lines into a single blank line"""
+
+    ret = []
+
+    for i, line in enumerate(lines):
+        curr_line = line.strip()
+
+        if curr_line != "" or i == len(lines) - 1:
+            cnt = count_blank_lines_end(ret)
+            if cnt >= n:
+                for _ in range(cnt):
+                    ret.pop()
+                ret.append("")
+
+        if curr_line != "" or i < len(lines) - 1:
+            ret.append(curr_line)
+
+    return ret
+
+
+def count_blank_lines_end(a_list: list[str]) -> int:
+
+    if len(a_list) == 0:
+        return 0
+
+    last_idx = len(a_list)-1
+
+    for i in range(last_idx, -1, -1):
+        if a_list[i] != "":
+            return last_idx - i
+
+
+# Import time Tests
+
+assert count_blank_lines_end(["a", "", ""]) == 2
+assert count_blank_lines_end(["a", "", "b"]) == 0
+
+assert squeeze_blank_lines(["a", "", "", "b"]) == ["a", "", "b"]
+assert squeeze_blank_lines(["a", "", "", "", "b"]) == ["a", "", "b"]
+assert squeeze_blank_lines(["a", "", ""]) == ["a", ""]
+assert squeeze_blank_lines(["a", "", "", "a", "", ""]) == ["a", "", "a", ""]
+assert squeeze_blank_lines(["a", "a", "", ""]) == ["a", "a", ""]
