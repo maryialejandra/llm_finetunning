@@ -22,14 +22,14 @@ class GroqTranslator:
         self.total_time: float = 0
 
         self.prompt_tmpl = ("Please translate the following text pertaining university regulations at Universidad de los Andes to English:\n"
-                            "```\n{spanish_text}\n```\nThe translation of the text to English is:\n")
+                            "```\n{spanish_text}\n```\nProvide ONLY ONE translation, the best one, and DO NOT add any other content or comments besides the translation. Also, please DO NOT preface the translation with any text such as 'The translation of the text to English is' or anything similar:\n")
         # CompletionUsage(completion_tokens=60, prompt_tokens=139, total_tokens=199, completion_time=0.24, prompt_time=0.033716789, queue_time=0.19504005, total_time=0.273716789)
 
     def translate(self, spanish_text: str, verbose: bool = False) -> str:
         if spanish_text.strip() == "":
             return ""
-        print(f"Spanish text: {spanish_text[0:15]}...{spanish_text[-15:]} ...")
 
+        print(f"Spanish text    : {spanish_text[0:45]}...{spanish_text[-45:]} ...")
         if spanish_text in self.cache:
             print("Found in cache!")
             return self.cache[spanish_text]
@@ -56,12 +56,12 @@ class GroqTranslator:
                 self.total_time += usage.total_time
 
                 translation_text = chat_completion.choices[0].message.content
-                self.cache[spanish_text] = translation_text
+                self.cache[spanish_text] = translation_text.strip("'").strip('"')
 
                 time.sleep(self.pause_secs)
             except Exception as exc:
                 raise exc
 
-        print(f"English text: {translation_text[0:15]}...{translation_text[-15:]}")
+        print(f"English translation: {translation_text[0:45]}...{translation_text[-45:]}")
 
         return translation_text.strip("'")
