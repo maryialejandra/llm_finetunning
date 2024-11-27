@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# added by some library...
+managed_context/
+test_suite_analysis/
+
+
+
 # C extensions
 *.so
 

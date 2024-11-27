@@ -1,5 +1,6 @@
 import re
 from collections import Counter
+from pathlib import Path
 
 def process_raw_lines_estatutos(raw_lines: list[str]):
     """Preprocess raw text file:
@@ -176,11 +177,24 @@ def count_blank_lines_end(a_list: list[str]) -> int:
         if a_list[i] != "":
             return last_idx - i
 
+    return last_idx + 1
+
+
+
+def write_lines(lines: list[str], output_fpath: Path, end="\n", overwrite: bool=False) -> None:
+    if output_fpath.exists() and not overwrite:
+        raise FileExistsError(f"File already exists ({str(output_fpath)}) pass explicit overwrite=True to overwrite")
+
+    with open(output_fpath, "wt", encoding="utf-8") as f_out:
+        for line in lines:
+            print(line, end=end, file=f_out)
+
 
 # Import time Tests
 
 assert count_blank_lines_end(["a", "", ""]) == 2
 assert count_blank_lines_end(["a", "", "b"]) == 0
+assert count_blank_lines_end(["", "", ""]) == 3
 
 assert squeeze_blank_lines(["a", "", "", "b"]) == ["a", "", "b"]
 assert squeeze_blank_lines(["a", "", "", "", "b"]) == ["a", "", "b"]
