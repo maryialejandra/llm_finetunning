@@ -42,7 +42,10 @@ class TokenizedTxtDataset(Dataset):
                  *,
                  block_size: int,
                  stride: int,
-                 tokenizer: AutoTokenizer) -> None:
+                 tokenizer: AutoTokenizer,
+                 start_pct: float = 0.0,
+                 end_pct: float = 100.0
+                 ) -> None:
 
         all_text: str = concat_files_to_str(plain_text_fpaths)
 
@@ -52,23 +55,30 @@ class TokenizedTxtDataset(Dataset):
 
         print(f"TokenizedTxtDs.__init__: len(all_text)={len(all_text):,d}")
         token_batch = tokenizer(all_text, return_tensors='pt')
+        n_toks_raw: int = token_batch['input_ids'][0].shape[0]
 
-        raw_input_ids = token_batch['input_ids'][0]
-        n_toks_raw: int = raw_input_ids.shape[0]
+        start_idx = int(n_toks_raw * start_pct / 100.0)
+        end_idx = int(n_toks_raw * end_pct / 100.0)
+        print(f"n_toks_raw: {n_toks_raw} start_idx: {start_idx} end_idx: {end_idx}")
+        del n_toks_raw
 
-        self.n_blocks: int = int(math.ceil(n_toks_raw / block_size))
+        input_ids = token_batch['input_ids'][0][start_idx:end_idx]
+        attn_mask = token_batch['attention_mask'][0][start_idx:end_idx]
+
+        n_toks_sampled = input_ids.shape[0]
+        self.n_blocks: int = int(math.ceil(n_toks_sampled / block_size))
         n_toks_padded: int = block_size * self.n_blocks
 
         pad_token_id = tokenizer.pad_token_id or tokenizer.eos_token_id
-        self.input_ids = beut.pad_1d_tensor_to_len(raw_input_ids,
+        self.input_ids = beut.pad_1d_tensor_to_len(input_ids,
                                                    target_len=n_toks_padded,
                                                    pad_value=pad_token_id)
         self.attention_mask = beut.pad_1d_tensor_to_len(
-                                        token_batch['attention_mask'][0],
+                                        attn_mask,
                                         target_len=n_toks_padded,
                                         pad_value=0
                               )
-        print(f"n_toks_raw: {n_toks_raw:7,d}  input_ids length (padded): {self.input_ids.shape[0]:7,d} "
+        print(f"n_toks_sampled: {n_toks_sampled:7,d}  input_ids length (padded): {self.input_ids.shape[0]:7,d} "
               f"block_size: {self.block_size} n_blocks: {self.n_blocks}")
 
         self.total_toks = n_toks_padded

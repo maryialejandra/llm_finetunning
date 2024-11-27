@@ -5,10 +5,35 @@ import torch as pt
 import tqdm
 from torch import nn, Tensor
 from torch.utils.data import DataLoader
+from transformers import AutoTokenizer
 from transformers.tokenization_utils_base import BatchEncoding
 
+import src.utils as ut
 from src.qa_dataset import TokenizedQAsDs
 from src.utils import module_device, letter_to_idx
+
+
+def gen_test_predictions_with_model(
+            model: nn.Module,
+            batch_size: int = 4,
+            out_csv_path: Path | None = None
+        ) -> pd.DataFrame:
+    ut.login_to_hf_hub()
+
+    test_df = ut.load_test_df()
+    tokenizer = AutoTokenizer.from_pretrained(ut.LLAMA_MODEL_ID)
+
+    test_ds = TokenizedQAsDs(
+        test_df,
+        formatter_version="ver1",
+        tokenizer=tokenizer,
+        pad_to_len=256
+    )
+
+    return predict_all(model, test_ds,
+                       batch_size=batch_size,
+                       out_csv_path=out_csv_path)
+
 
 def predict_all(model: nn.Module,
                 qa_ds: TokenizedQAsDs,
@@ -27,9 +52,10 @@ def predict_all(model: nn.Module,
     best_answer = pt.cat([dic["best_answer"] for dic in answers]).numpy()
 
     answers_df = pd.DataFrame(
-        data={"ID": ids,
-              "answer": best_answer + 1  # produce 1-based answers, i.e in {1, 2, 3, 4}
-              }
+        data={
+            "ID": ids,
+            "answer": best_answer + 1  # produce 1-based answers, i.e in {1, 2, 3, 4}
+        }
     )
 
     if out_csv_path is not None:
