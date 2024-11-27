@@ -14,9 +14,9 @@ import numpy as np
 import torch as pt
 from torch import nn
 
-
 T = TypeVar('T')
 
+LLAMA_MODEL_ID = "meta-llama/Llama-3.2-1B"
 
 LETTER_TO_IDX = {"A": 0, "B": 1, "C": 2, "D": 3}
 
@@ -89,7 +89,7 @@ def get_secret(var_name: str,  value: str = None,
             print(f"Secret {var_name} not found in env_var")
 
     if use_colab:
-        from google.colab import userdata
+        from google.colab import userdata # Pylance: ignore
         value = userdata.get(var_name)
         if value is not None:
             print(f"Returning google.colab secret `{var_name}`=`{value[:2]}...{value[-2:]}`", )
@@ -106,7 +106,7 @@ def login_to_hf_hub(hf_token: str | None = None):
     If successful login to huggingface hub with said token.
     """
 
-    hf_token = get_secret("HF_TOKEN", hf_token)
+    hf_token = get_secret("HF_API_KEY", hf_token)
     hf_hub.login(token=hf_token)
 
 def module_device(mod: nn.Module) -> str:
