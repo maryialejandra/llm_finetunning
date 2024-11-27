@@ -9,7 +9,7 @@ The following are instructions on how to git clone our private repo from within 
 
     git config --global credential.helper store  # You _need_ this for next step!
 
-    # cd to dir when you want to put repo
+    # cd to directory where you want to clone the repo
     git clone https://github.com/maryialejandra/llm_finetunning ./llm_finetunning
 
     # type in your github username and password (or token) if/when prompted
@@ -19,20 +19,21 @@ The following are instructions on how to git clone our private repo from within 
    ```bash
    $ cat $HOME/.git-credentials  # or just open it from a text editor
 
-   https://cuckookernel:YOUR-PASSWORD-OR-TOKEN-HERE@github.com
+   https://<YOUR-USERNAME-HERE>:<YOUR-PASSWORD-OR-TOKEN-HERE>@github.com
    ```
 
-2. The `.git-credentials`  file might show some other lines, for example, if you do run git to clone repos from other domains different from `github.com`
+2. If you have ever cloned repos from other domains different from `github.com`, `.git-credentials`  might contain some other lines.
    However, _the only line we care about is the line that ends in `github.com` and that contains the username and password you used in step 0._
 
-   Now go to google colab and create a secret (using the little key icon that you will see on the left margin - if you don't see it do: Ctrl + Shift + P to bring up the command palette and then type "Open user secrets" and click on the command)
+   Now go to google colab and create a secret (using the little key icon that you will see on the left margin
+   - if you don't see it do: Ctrl + Shift + P to bring up the command palette and then type "Open user secrets" and click on the command).
    The secret name should be `GITHUB_USERPWD` and as its value paste the _whole_ line from `.git-credentials` we just mentioned.
    Make sure to strip any spaces at the beginning or end when pasting it.
 
 3. Now you can clone our repo from google colab running the following code in a cell:
 
     ```python
-    from google.colab import userdata
+    from google.colab import userdata  # get access to secrets defined in secrets tab
     with open('/root/.git-credentials', 'wt') as f_out:
         print(userdata.get('GITHUB_USERPWD'), file=f_out)
 
