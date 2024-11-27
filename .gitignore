@@ -7,10 +7,10 @@ __pycache__/
 managed_context/
 test_suite_analysis/
 
+data/*.ckpt
 data/*.csv
 data/*.txt
 data/*.jsonl
-
 
 # C extensions
 *.so

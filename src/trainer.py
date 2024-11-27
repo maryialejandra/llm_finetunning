@@ -1,7 +1,7 @@
 import math
 import time
 
-from typing import Callable
+from typing import Callable, Iterator
 
 import torch as pt
 from torch import nn, optim, Tensor
@@ -28,6 +28,9 @@ class Trainer:
         self.train_losses: list[float] = []
         self.valid_losses: list[float] = []
         self.best_valid_loss: float = float("inf")
+        self.t0: float = float("NaN")
+        self.prev_token_cnt: int = 0
+        self.token_cnt: int = 0
 
     def train(self,
               model: nn.Module,
@@ -47,28 +50,39 @@ class Trainer:
             # Makes sense in the case of pretrained models
             self.pretrain_eval(model, loss_fun)
 
-        train_dl = iter(DataLoader(self.train_ds, shuffle=True,
-                                   batch_size=self.train_batch_size))
+        max_epochs = int(math.ceil(max_steps / len(self.train_ds)))
 
-        print(f'Entrenando por {max_steps} pasos.')
+        print(f'Entrenando por {max_steps} pasos. {max_epochs} epochs')
         print(f'Nota Importante:\n    El `Train Loss` que se reporta se calcula únicamente sobre los datos'
               f' de los últimos {accum_grad_steps} pasos de entrenamiento.\n'
               '    El `Valid Loss` es sobre *todos* los datos de validación')
 
         # used for logging every steps_per_log steps
         log_train_losses = []
-        t0 = time.perf_counter()
-        prev_token_cnt = 0
-        token_cnt = 0
+        self.t0 = time.perf_counter()
+        self.prev_token_cnt = 0
+        self.token_cnt = 0
 
+        step = 0
+        epoch_cnt = 0
+
+        train_dl = self.renew_train_dl()
         for step in range(max_steps):
             model.train()
+            # for step in range(max_steps):
 
             opt.zero_grad()
-            for mini_step in range(accum_grad_steps):
-                batch = next(train_dl)
+            for _mini_step in range(accum_grad_steps):
+                try:
+                    batch = next(train_dl)
+                except StopIteration:
+                    train_dl = self.renew_train_dl()
+                    epoch_cnt += 1
+                    print(f"train_dl exhausted, resetting... epoch_cnt={epoch_cnt}")
+                    batch = next(train_dl)
+
                 batch = {k: v.to(self.device) for k, v in batch.items()}
-                token_cnt += batch['input_ids'].shape[1]
+                self.token_cnt += batch['input_ids'].shape[1]
 
                 loss = loss_fun(model, batch)
                 log_train_losses.append(loss.item())
@@ -76,31 +90,41 @@ class Trainer:
                 loss.backward()
 
             opt.step()
+            step += 1
 
             if (step % steps_per_log == 0 or step == max_steps-1) and self.valid_ds is not None:
-                elapsed = (time.perf_counter() - t0)
-                tokens_per_sec = (token_cnt - prev_token_cnt) / elapsed
-
                 train_loss = pt.mean(pt.Tensor(log_train_losses)).item()
-                pre_text = (f'Step {step:4d} - Train loss: {train_loss:5.3f}                               '
-                            f'(tokens/sec:{tokens_per_sec:5.0f})')
-
-                valid_loss = self.estimate_loss(model, loss_fun,
-                                                self.valid_ds,
-                                                ds_name='validation',
-                                                pre_text=pre_text)
-
-                self.train_losses.append(train_loss)
-                self.valid_losses.append(valid_loss)
-                # Log metrics
-                print(f'Step {step:4d} -                    Valid loss: {valid_loss:5.3f}')
-
-                # Reset counters
-                t0 = time.perf_counter()
-                prev_token_cnt = token_cnt
+                self.emit_log(train_loss, model, loss_fun, step)
                 log_train_losses = []
 
         return model
+
+
+    def renew_train_dl(self) -> Iterator[dict[str, Tensor]]:
+        return iter(DataLoader(self.train_ds, shuffle=True,
+                               batch_size=self.train_batch_size))
+
+    def emit_log(self, train_loss: float, model: nn.Module,  loss_fun, step: int):
+        elapsed = (time.perf_counter() - self.t0)
+        tokens_per_sec = (self.token_cnt - self.prev_token_cnt) / elapsed
+
+
+        pre_text = (f'Step {step:4d} - Train loss: {train_loss:5.3f}                     '
+                    f'(tokens/sec:{tokens_per_sec:5.0f})')
+
+        valid_loss = self.estimate_loss(model, loss_fun,
+                                        self.valid_ds,
+                                        ds_name='validation',
+                                        pre_text=pre_text)
+
+        self.train_losses.append(train_loss)
+        self.valid_losses.append(valid_loss)
+        # Log metrics
+        print(f'Step {step:4d} -                    Valid loss: {valid_loss:5.3f}')
+        # Reset counters
+
+        self.t0 = time.perf_counter()
+        self.prev_token_cnt = self.token_cnt
 
 
     @pt.no_grad
