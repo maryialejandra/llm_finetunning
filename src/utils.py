@@ -11,8 +11,11 @@ from typing import Generator, TypeVar, Callable
 
 import huggingface_hub as hf_hub
 import numpy as np
+import pandas as pd
 import torch as pt
+
 from torch import nn
+from transformers import AutoModelForCausalLM
 
 T = TypeVar('T')
 
@@ -198,3 +201,25 @@ def upload_file_to_s3(fpath: Path | str,
     except Exception as exc:
         print(f"Error uploading file to S3: {exc}")
 
+
+def load_test_df(test_csv_path: Path = Path("../data/test_uniandes.csv")) -> pd.DataFrame:
+    test_df = pd.read_csv(test_csv_path)
+
+    test_df["question"] = test_df["Pregunta"]
+    test_df["options"] = test_df.apply(
+        lambda row: [row["Opcion1"], row["Opcion2"], row["Opcion3"], row["Opcion4"]],
+        axis=1
+    )
+
+    return test_df
+
+
+def load_raw_model() -> nn.Module:
+    model_raw = AutoModelForCausalLM.from_pretrained(
+        LLAMA_MODEL_ID,
+        torch_dtype=pt.float16,
+        device_map="auto"
+    )
+    model_raw.eval()
+
+    return model_raw
