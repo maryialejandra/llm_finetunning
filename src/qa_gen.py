@@ -29,11 +29,13 @@ Please generate one multiple choice question, a correct answer for it and three 
 {chunk}
 ```
 The question should be short, i.e. between about 8 and 15 words long and end on question mark, and should be contained in a SINGLE line
-DO NOT preface the question with any introductory remark.
+DO NOT preface the question with any introductory remark, except "QUESTION:"
 The question should not be about chapter/section/article numbers or titles.
 You should return the question in the first line, followed by the correct answer in the 2nd line.
 Lines 3, 4 and 5 should contain an incorrect answer each.
 The correct answer and each of the incorrect answers should be short, each no longer than a few words (10 tops.)
+
+i.e we expect the following format:
 
 QUESTION: <question here between 8 and 15 words long ending in question mark>
 CORRECT ANSWER: <correct answer here>
@@ -66,7 +68,6 @@ class QAGenerator:
         self.total_time: float = 0
 
         self.prompt_tmpl = PROMPT_TMPL_V1
-        # CompletionUsage(completion_tokens=60, prompt_tokens=139, total_tokens=199, completion_time=0.24, prompt_time=0.033716789, queue_time=0.19504005, total_time=0.273716789)
 
     def gen_question(self, chunk: str, verbose: bool = False) -> str:
         assert chunk.strip() != ""
@@ -97,6 +98,13 @@ class QAGenerator:
                     self.total_time += usage.total_time
 
                     generated_qa = chat_completion.choices[0].message.content
+
+                    lines = [ln for ln in generated_qa.split("\n") if ln.strip() != ""]
+                    if len(lines) != 5 or "CORRECT ANSWER" not in generated_qa:
+                        print(f"WARNING: invalid generated_qa: {generated_qa!r}")
+                        time.sleep(self.pause_secs)
+                        continue # Retry
+
                     if self.cache_enabled:
                         self.cache[chunk] = generated_qa.strip("'").strip('"')
 
@@ -109,20 +117,22 @@ class QAGenerator:
                     print(f"Rate limit error: {rlerr} retrying with new client: {self.client_idx}")
 
 
-
-
 def parse_generated_question(generated_qa: str):
     # Remove empty lines
     lines = [ln for ln in generated_qa.split("\n") if ln.strip() != ""]
 
-    correct_answer_idx = ut.find_first_idx(lines, lambda x: "CORRECT ANSWER" in x)
+    if len(lines) == 5:
+        question = re.sub("QUESTION: *", "", lines[0])
+        correct_answer_idx = 1
+        wrong_answer_idx = 2
+    else:
+        correct_answer_idx = ut.find_first_idx(lines, lambda x: "CORRECT ANSWER" in x)
+        assert correct_answer_idx is not None, f"generated_qa: {generated_qa!r}"
 
-    assert correct_answer_idx is not None, f"generated_qa: {generated_qa!r}"
+        question_lines = [ln.replace("QUESTION:", "").strip() for ln in lines[:correct_answer_idx]]
+        question = " ".join(question_lines)
 
-    question_lines = [ln.replace("QUESTION:", "").strip() for ln in lines[:correct_answer_idx]]
-    question = " ".join(question_lines)
-
-    wrong_answer_idx = ut.find_first_idx(lines, lambda x: "INCORRECT ANSWER" in x)
+        wrong_answer_idx = ut.find_first_idx(lines, lambda x: "INCORRECT ANSWER" in x)
 
     assert wrong_answer_idx is not None, f"generated_qa: {generated_qa!r}"
 
@@ -130,6 +140,7 @@ def parse_generated_question(generated_qa: str):
                              for ln in lines[correct_answer_idx:wrong_answer_idx]]
 
     correct_answer = " ".join(correct_answer_lines)
+
     ret = {
         "question": question,
         "correct_answer": correct_answer,
@@ -177,7 +188,7 @@ def parse_generated_question_v0(generated_qa: str):
 
 
 def enrich_generated_qa(in_rec: dict[str, str | list[str]],
-                        article: str, example_id: str):
+                        src_chunk: str, example_id: str):
     """Add the following fields to rec:
        - example_id: str - derived from src_file_key
        - answer:  Literal["A","B","C","D"]; letter corresponding to right answer
@@ -186,7 +197,7 @@ def enrich_generated_qa(in_rec: dict[str, str | list[str]],
     """
 
     ret = {}
-    ret["article"] = article
+    ret["source_chunk"] = src_chunk
     ret["question"] = in_rec["question"]
     ret["correct_answer"] = in_rec["correct_answer"]
     ret["example_id"] = example_id
@@ -199,10 +210,25 @@ def enrich_generated_qa(in_rec: dict[str, str | list[str]],
     options = [None] * 4
     options[answer_idx] = in_rec["correct_answer"]
     # Use remaining indices to put incorrect answers
-    for idx, incorrect in zip(perm_idxs[1:], in_rec["incorrect_answers"],
+
+    # assert len(in_rec["incorrect_answers"])==3, f"in_rec={in_rec!r}"
+
+    wrong_answers = ensure_incorrect_answers(in_rec["incorrect_answers"])
+    for idx, incorrect in zip(perm_idxs[1:], wrong_answers[:3],
                               strict=True):
-        options[idx] = incorrect
+        options[idx] = incorrect.strip()
 
     ret["options"] = options
+
+    return ret
+
+
+def ensure_incorrect_answers(answers: list[str]) -> list[str]:
+    """Ensure that answer has exactly 3 incorrect answers"""
+
+    ret = answers.copy()
+
+    while len(ret) < 3:
+        ret.append("The answer is 42")
 
     return ret

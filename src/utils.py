@@ -56,5 +56,5 @@ def chunk_generator(lines: list[str], start_idx: int,
 
         start_idx += 1
         while start_idx < n_lines and lines[start_idx].strip() == "":
-            print("Advancing start_idx")
+            # print("Advancing start_idx")
             start_idx += 1
