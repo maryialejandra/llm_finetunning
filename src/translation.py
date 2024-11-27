@@ -1,8 +1,9 @@
 import time
-import src.auth_utils as au
 
 from pathlib import Path
-from groq import Groq
+from groq import Groq, RateLimitError
+
+import src.utils as ut
 
 class GroqTranslator:
     def __init__(self, *,
@@ -10,7 +11,7 @@ class GroqTranslator:
                  groq_model: str,
                  pause_secs: float = 2.0,
                  ):
-        groq_api_keys = au.get_secret(api_keys_var).split(";")
+        groq_api_keys = ut.get_secret(api_keys_var).split(";")
         print(f"{len(groq_api_keys)} Groq api keys loaded.")
         self.groq_model = groq_model
         self.pause_secs = pause_secs
@@ -61,6 +62,11 @@ class GroqTranslator:
                 self.cache[spanish_text] = translation_text.strip("'").strip('"')
 
                 time.sleep(self.pause_secs)
+
+            except RateLimitError as rlerr:
+                    self.client_idx = (self.client_idx + 1) % len(self.clients)
+                    print(f"Rate limit error: {rlerr} retrying with new client: {self.client_idx}")
+
             except Exception as exc:
                 raise exc
 
