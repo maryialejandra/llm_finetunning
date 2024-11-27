@@ -1,6 +1,5 @@
 import re
 import time
-import src.auth_utils as au
 import src.utils as ut
 from groq import Groq, RateLimitError
 
@@ -53,7 +52,7 @@ class QAGenerator:
                  pause_secs: float = 2.0,
                  cache_enabled: bool = True,
                  ):
-        groq_api_keys = au.get_secret(api_keys_var).split(";")
+        groq_api_keys = ut.get_secret(api_keys_var).split(";")
         print(f"{len(groq_api_keys)} Groq api keys loaded.")
         self.groq_model = groq_model
         self.pause_secs = pause_secs
