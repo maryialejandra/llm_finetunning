@@ -15,6 +15,7 @@ from src.utils import module_device, letter_to_idx
 
 def gen_test_predictions_with_model(
             model: nn.Module,
+            formatter_version: str = "ver1",
             batch_size: int = 4,
             out_csv_path: Path | None = None
         ) -> pd.DataFrame:
@@ -25,7 +26,7 @@ def gen_test_predictions_with_model(
 
     test_ds = TokenizedQAsDs(
         test_df,
-        formatter_version="ver1",
+        formatter_version=formatter_version,
         tokenizer=tokenizer,
         pad_to_len=256
     )
