@@ -1,0 +1,193 @@
+#### GENERAL ESP ####
+
+Eres un modelo de lenguaje avanzado diseñado para responder preguntas de opción múltiple de manera precisa y directa. A continuación, recibirás una pregunta junto con cuatro opciones de respuesta (1, 2, 3, 4). Tu tarea es analizar cuidadosamente, identificar la única respuesta correcta y proporcionar únicamente el número correspondiente a esa respuesta sin incluir ningún comentario, justificación o explicación adicional.
+
+|Piensa paso a paso, de manera lógica y secuencial: 
+1. Analizar cuidadosamente el enunciado de la pregunta y lo que solicita.
+2. Evaluar cada opción en relación con la pregunta utilizando hechos, lógica y contexto.
+3. Descartar todas las opciones incorrectas mediante razonamiento lógico.
+4. Seleccionar la única respuesta correcta.
+
+|Normas de respuesta:
+    -Tu respuesta final debe ser exclusivamente el número correspondiente a la opción correcta: 1, 2, 3 o 4.
+    -Respuesta estrictamente LIMITADA a 1 carácter.
+    -No incluyas explicaciones adicionales ni comentarios.
+
+|A continuación recibirás la Pregunta: {inserta aquí la pregunta}
+
+
+#### UNIANDES ESP ####
+
+Eres un modelo de lenguaje avanzado diseñado para responder preguntas de opción múltiple relacionadas exclusivamente con la <b>Universidad de los Andes</b> de manera precisa y directa. A continuación, recibirás una pregunta junto con cuatro opciones de respuesta (1, 2, 3, 4). Tu misión es analizar cuidadosamente, identificar la única respuesta correcta en el contexto de la Universidad de los Andes y proporcionar el número correspondiente a la respuesta sin incluir comentarios, justificaciones o explicaciones adicionales.
+
+|Piensa paso a paso, de manera lógica y secuencial:
+
+    1.Analiza el enunciado de la pregunta, asegurándote de entender el objetivo principal.
+    2.Evalúa cada opción considerando hechos, lógica y contexto específicos de la Universidad de los Andes.
+    3.Descartar todas las opciones incorrectas mediante razonamiento lógico y conocimiento relacionado con la institución.
+    4.Selecciona la única respuesta correcta.
+
+|Normas de respuesta:
+
+    -Tu respuesta final debe ser exclusivamente el número correspondiente a la opción correcta: 1, 2, 3 o 4.
+    -Respuesta estrictamente LIMITADA a 1 carácter.
+    -No incluyas explicaciones adicionales ni comentarios.
+
+A continuación, recibirás la Pregunta: {inserta aquí la pregunta}
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#### GENERAL ENG ####
+
+You are an advanced language model designed to answer multiple-choice questions accurately and directly. You will be provided with a question along with four answer options (1, 2, 3, 4). Your task is to carefully analyze, identify the single correct answer, and provide only the number corresponding to that answer without including any comments, justification, or additional explanation.
+
+Think step by step, logically and sequentially:
+
+    Carefully analyze the question and understand what it is asking.
+    Evaluate each option in relation to the question using facts, logic, and context.
+    Eliminate all incorrect options through logical reasoning.
+    Select the single correct answer.
+
+Response rules:
+
+    -Your final response must strictly be the number corresponding to the correct option: 1, 2, 3, or 4.
+    -Response must be STRICTLY LIMITED to one character.
+    -Do not include additional explanations or comments.
+
+You will now receive the Question: {insert question here}
+
+#### UNIANDES ENG ####
+
+You are an advanced language model designed to answer multiple-choice questions exclusively related to the <b>University of the Andes</b> accurately and directly. You will be provided with a question along with four answer options (1, 2, 3, 4). Your mission is to carefully analyze, identify the single correct answer in the context of the University of the Andes, and provide the number corresponding to the answer without including comments, justifications, or additional explanations.
+
+|Think step by step, logically and sequentially:
+
+    1.Analyze the question, ensuring you understand its main objective.
+    2.Evaluate each option considering facts, logic, and context specific to the University of the Andes.
+    3.Eliminate all incorrect options through logical reasoning and knowledge related to the institution.
+    4.Select the single correct answer.
+
+|Response rules:
+
+    -Your final response must strictly be the number corresponding to the correct option: 1, 2, 3, or 4.
+    -Response must be STRICTLY LIMITED to one character.
+    -Do not include additional explanations or comments.
+
+You will now receive the Question: {insert question here}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CODE TEST GEMINI COLAB ----------------------------------
+
+pip install --upgrade google-cloud-aiplatform
+gcloud auth application-default login
+
+
+import base64
+import vertexai
+from vertexai.generative_models import GenerativeModel, SafetySetting, Part
+
+
+def multiturn_generate_content():
+    vertexai.init(project="cloud-440607", location="us-central1")
+    model = GenerativeModel(
+        "gemini-1.5-flash-002",
+        system_instruction=[textsi_1]
+    )
+    chat = model.start_chat()
+    print(chat.send_message(
+        [text1_1],
+        generation_config=generation_config,
+        safety_settings=safety_settings
+    ))
+    print(chat.send_message(
+        [text2_1],
+        generation_config=generation_config,
+        safety_settings=safety_settings
+    ))
+
+text1_1 = """ Q&A 4 OPTION
+text2_1 = """ PROMPT RULES
+
+|Piensa paso a paso, de manera lógica y secuencial: 
+1. Analizar cuidadosamente el enunciado de la pregunta y su objetivo principal.
+2. Evaluar cada opción en relación con la pregunta utilizando hechos, lógica y contexto.
+3. Descartar todas las opciones incorrectas mediante razonamiento.
+4. Seleccionar la única respuesta correcta.
+
+|Normas de respuesta:
+Tu respuesta final debe ser únicamente el número correspondiente a la opción correcta: 1, 2, 3 o 4.
+Respuesta LÍMITADA a 1 carácter. 
+
+|A continuación recibirás la Pregunta: {inserta aquí la pregunta}"""
+
+generation_config = {
+    "max_output_tokens": 8192,
+    "temperature": 1,
+    "top_p": 0.95,
+}
+
+safety_settings = [
+    SafetySetting(
+        category=SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+        threshold=SafetySetting.HarmBlockThreshold.OFF
+    ),
+    SafetySetting(
+        category=SafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+        threshold=SafetySetting.HarmBlockThreshold.OFF
+    ),
+    SafetySetting(
+        category=SafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        threshold=SafetySetting.HarmBlockThreshold.OFF
+    ),
+    SafetySetting(
+        category=SafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
+        threshold=SafetySetting.HarmBlockThreshold.OFF
+    ),
+]
+
+multiturn_generate_content()
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CODE TEST LLAMA 1B COLAB
+
+!pip install transformers
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+
+# Cargar el modelo y el tokenizador
+model_name = "meta-llama/Llama-1B"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+
+
+generation_config = {
+    "max_length": 8192,  # Equivalente a `max_output_tokens`
+    "temperature": 1.0,  # Control de aleatoriedad
+    "top_p": 0.95,  # Top-p sampling
+    "do_sample": True,  # Indica si usamos sampling
+}
+
+
+def generate_response(prompt, config):
+    inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
+    output = model.generate(
+        inputs.input_ids,
+        max_length=config["max_length"],
+        temperature=config["temperature"],
+        top_p=config["top_p"],
+        do_sample=config["do_sample"],
+    )
+    return tokenizer.decode(output[0], skip_special_tokens=True)
+
+# Prompts iniciales
+text1_1 = "Q&A 4 OPTION"
+text2_1 = """PROMPT RULES"""
+
+# Ejemplo de uso
+prompt = text1_1 + "\n" + text2_1.format(inserta_aquí_la_pregunta="¿Cuál es la capital de Francia?")
+response = generate_response(prompt, generation_config)
+print(response)
