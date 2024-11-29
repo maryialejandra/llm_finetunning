@@ -18,3 +18,9 @@ data/predictions.csv filter=lfs diff=lfs merge=lfs -text
 data/r16-e124-bs1024-s64-spa-v1.csv filter=lfs diff=lfs merge=lfs -text
 data/rag-answers-claude-ch700-2.1-DONT-SUBMIT.csv filter=lfs diff=lfs merge=lfs -text
 data/rag-answers-groq-ch288-DONT-SUBMIT.csv filter=lfs diff=lfs merge=lfs -text
+data/reglamento-maestria-web-2024.preprocessed2.txt filter=lfs diff=lfs merge=lfs -text
+data/Estatutos-Universidad-de-los-Andes-2020-ratificados-MEN-RQ.manually-cleaned.txt filter=lfs diff=lfs merge=lfs -text
+data/Estatutos-Universidad-de-los-Andes-2020-ratificados-MEN-RQ.preprocessed2.translated.txt filter=lfs diff=lfs merge=lfs -text
+data/Estatutos-Universidad-de-los-Andes-2020-ratificados-MEN-RQ.preprocessed2.txt filter=lfs diff=lfs merge=lfs -text
+data/reglamento-maestria-web-2024.manually-cleaned.txt filter=lfs diff=lfs merge=lfs -text
+data/reglamento-maestria-web-2024.preprocessed2.translated.txt filter=lfs diff=lfs merge=lfs -text
