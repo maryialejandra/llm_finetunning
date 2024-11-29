@@ -16,3 +16,9 @@ Preprocessing order:
 - <file>.PDF -> [Online conversion tool] -> <file>.raw.txt
 - <file>.raw.txt -> [preprocessed-teo.ipynb] -> <file>.preprocessed.txt (join some lines)
 - <file>.preprocessed.txt -> [manual editing]  -> <file>.manually-cleaned.txt
+
+
+emails de gmail:
+   - ssimon1016@gmail.com
+   - mateini@gmail.com
+   - maryialejandra99@gmail.com
