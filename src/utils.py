@@ -15,6 +15,8 @@ import pandas as pd
 import torch as pt
 
 from torch import nn
+from torch import Tensor
+from transformers.tokenization_utils_base import BatchEncoding
 from transformers import AutoModelForCausalLM
 
 T = TypeVar('T')
@@ -228,11 +230,6 @@ def jsonl_to_df(fpath: Path) -> pd.DataFrame:
     dics = [json.loads(line) for line in fpath.open("rt").readlines()]
     print(f"{fpath!s} len(lines):", len(dics))
     return pd.DataFrame(dics)
-
-
-from torch import Tensor
-from transformers.tokenization_utils_base import BatchEncoding
-
 
 def to_device(obj: Tensor | dict[str, Tensor] | BatchEncoding, device: str):
     if isinstance(obj, Tensor):

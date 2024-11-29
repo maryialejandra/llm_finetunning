@@ -5,6 +5,8 @@ import torch as pt
 from torch import Tensor
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
+
+import src.utils as ut
 from src.utils import letter_to_idx
 from src.batch_enc_utils import batch_enc_apply, batch_enc_cat, pad_batch_1d_to_len
 
@@ -74,7 +76,8 @@ class TokenizedQAsDs(Dataset):
                  tokenizer: AutoTokenizer,
                  pad_to_len: int,
                  pad_value: int | None = None,
-                 attention_pad_value: int = 0
+                 attention_pad_value: int = 0,
+                 device: str = "cpu"
                  ) -> None:
 
         # Basic params
@@ -82,6 +85,7 @@ class TokenizedQAsDs(Dataset):
         self.pad_to_len = pad_to_len
         self.attention_pad_value = attention_pad_value
         self.pad_value = pad_value
+        self.device = device
 
         if self.pad_value is None:
             self.pad_value = tokenizer.pad_token_id or tokenizer.eos_token_id
@@ -116,7 +120,7 @@ class TokenizedQAsDs(Dataset):
         return len(self.items)
 
     def __getitem__(self, idx: int) -> dict[str, Tensor]:
-        return self.items[idx]
+        return ut.to_device(self.items[idx], self.device)
 
     # Funciones auxiliares para preprocesamiento del datast original y tokenización
     def preprocess_input(
