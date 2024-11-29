@@ -53,7 +53,7 @@ class TokenizedTxtDataset(Dataset):
         self.block_size: int = block_size
         self.max_stride_mult = block_size // stride
 
-        print(f"TokenizedTxtDs.__init__: len(all_text)={len(all_text):,d}")
+        print(f"\nTokenizedTxtDs.__init__: len(all_text)={len(all_text):,d}")
         token_batch = tokenizer(all_text, return_tensors='pt')
         n_toks_raw: int = token_batch['input_ids'][0].shape[0]
 
@@ -78,8 +78,8 @@ class TokenizedTxtDataset(Dataset):
                                         target_len=n_toks_padded,
                                         pad_value=0
                               )
-        print(f"n_toks_sampled: {n_toks_sampled:7,d}  input_ids length (padded): {self.input_ids.shape[0]:7,d} "
-              f"block_size: {self.block_size} n_blocks: {self.n_blocks}")
+        print(f"n_toks_sampled: {n_toks_sampled:7,d},  input_ids length (padded): {self.input_ids.shape[0]:7,d},  "
+              f"block_size: {self.block_size},  n_blocks: {self.n_blocks}")
 
         self.total_toks = n_toks_padded
         self.stride: int = stride

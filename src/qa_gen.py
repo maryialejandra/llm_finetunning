@@ -4,7 +4,7 @@ import src.utils as ut
 from groq import Groq, RateLimitError
 
 
-PROMPT_TMPL_V0: str = """
+PROMPT_TMPL_ENG_V0: str = """
 Please generate one multiple choice question, a correct answer for it and three (3) incorrect answers, based on the following text:
 ```
 {chunk}
@@ -22,7 +22,8 @@ INCORRECT ANSWER 3: <incorrect answer 3 here>
 
 QUESTION:"""
 
-PROMPT_TMPL_V1: str = """
+
+PROMPT_TMPL_ENG_V1: str = """
 Please generate one multiple choice question, a correct answer for it and three (3) incorrect answers, based on the following text:
 ```
 {chunk}
@@ -45,10 +46,77 @@ INCORRECT ANSWER 3: <incorrect answer 3 here>
 QUESTION:"""
 
 
+PROMPT_TMPL_SPA_V0: str = """
+Por favor genera una pregunta de opción múltiple (con una única respuesta correcta y 3 respuestas incorrectas) a partir del fragmento de texto que te doy más abajo.
+La pregunta NO DEBE ser sobre números o títulos de artículos o capítulos.
+
+Es decir, el formato que esperamos es:
+
+```
+Pregunta: <pregunta aquí, no más de 10 o 15 palabras y termina en signo de interrogación>
+Respuesta correcta: <respuesta correcta aquí>
+Respuesta incorrecta 1: <respuesta incorrecta 1 aquí>
+Respuesta incorrecta 2: <respuesta incorrecta 2 aquí>
+Respuesta incorrecta 3: <respuesta incorrecta 3 aquí>
+```
+
+El texto a partir del cuál debes generar la pregunta es:
+```
+{chunk}
+```
+Pregunta: """
+
+
+
+PROMPT_TMPL_SPA_V1: str = """
+Por favor genera una pregunta de opción múltiple (con una única respuesta correcta y 3 respuestas incorrectas) a partir del fragmento del siguiente texto:
+La pregunta NO DEBE ser sobre números o títulos de artículos o capítulos.
+
+```
+{chunk}
+```
+
+Instruccciones:
+1. Genera primero una única línea con la pregunta.
+2. También genera una sola línea con la respuesta correcta.
+3. Además genera otras tres (3) líneas con respuestas incorrectas.
+
+Es decir, el formato que esperamos es:
+
+Pregunta: <pregunta aquí, no más de 10 o 15 palabras y termina en signo de interrogación>
+Respuesta correcta: <respuesta correcta aquí>
+Respuesta incorrecta 1: <respuesta incorrecta 1 aquí>
+Respuesta incorrecta 2: <respuesta incorrecta 2 aquí>
+Respuesta incorrecta 3: <respuesta incorrecta 3 aquí>
+
+Pregunta:"""
+
+
+MATCH_STRS_ENG: dict[str, str] = {
+    "question": "QUESTION:",
+    "correct": "CORRECT ANSWER",
+    "incorrect": "INCORRECT ANSWER"
+}
+
+MATCH_STRS_SPA: dict[str, str] = {
+   "question": "Pregunta",
+   "correct": "Respuesta correcta",
+   "incorrect": "Respuesta incorrecta"
+}
+
+PROMPTS_BY_VER: dict[str, tuple[str, dict[str, str]]] = {
+    "eng-v0": (PROMPT_TMPL_ENG_V0, MATCH_STRS_ENG),
+    "eng-v1": (PROMPT_TMPL_ENG_V1, MATCH_STRS_ENG),
+    "spa-v0": (PROMPT_TMPL_SPA_V0, MATCH_STRS_SPA),
+    "spa-v1": (PROMPT_TMPL_SPA_V1, MATCH_STRS_SPA),
+}
+
+
 class QAGenerator:
     def __init__(self, *,
                  api_keys_var: str,
                  groq_model: str,
+                 prompt_ver: str,
                  pause_secs: float = 2.0,
                  cache_enabled: bool = True,
                  ):
@@ -66,7 +134,10 @@ class QAGenerator:
         self.queue_time: float = 0
         self.total_time: float = 0
 
-        self.prompt_tmpl = PROMPT_TMPL_V1
+        self.prompt_ver = prompt_ver
+        self.prompt_tmpl = PROMPTS_BY_VER[prompt_ver][0]
+        self.match_strs = PROMPTS_BY_VER[prompt_ver][1]
+        print(f"QAGenerator.init: prompt_tmpl=\n'''{self.prompt_tmpl}'''")
 
     def gen_question(self, chunk: str, verbose: bool = False) -> str:
         assert chunk.strip() != ""
@@ -99,7 +170,7 @@ class QAGenerator:
                     generated_qa = chat_completion.choices[0].message.content
 
                     lines = [ln for ln in generated_qa.split("\n") if ln.strip() != ""]
-                    if len(lines) != 5 or "CORRECT ANSWER" not in generated_qa:
+                    if len(lines) != 5 or self.match_strs["correct"] not in generated_qa:
                         print(f"WARNING: invalid generated_qa: {generated_qa!r}")
                         time.sleep(self.pause_secs)
                         continue # Retry
@@ -116,26 +187,27 @@ class QAGenerator:
                     print(f"Rate limit error: {rlerr} retrying with new client: {self.client_idx}")
 
 
-def parse_generated_question(generated_qa: str):
+def parse_generated_question(generated_qa: str, match_strs: dict[str, str]) -> dict[str, str]:
     # Remove empty lines
     lines = [ln for ln in generated_qa.split("\n") if ln.strip() != ""]
 
     if len(lines) == 5:
-        question = re.sub("QUESTION: *", "", lines[0])
+        question = re.sub(match_strs["question"]  + ": *", "", lines[0])
         correct_answer_idx = 1
         wrong_answer_idx = 2
     else:
-        correct_answer_idx = ut.find_first_idx(lines, lambda x: "CORRECT ANSWER" in x)
+        correct_answer_idx = ut.find_first_idx(lines, lambda x: match_strs["correct"] in x)
         assert correct_answer_idx is not None, f"generated_qa: {generated_qa!r}"
 
-        question_lines = [ln.replace("QUESTION:", "").strip() for ln in lines[:correct_answer_idx]]
+        question_lines = [ln.replace(match_strs["question"], "").strip()
+                          for ln in lines[:correct_answer_idx]]
         question = " ".join(question_lines)
 
-        wrong_answer_idx = ut.find_first_idx(lines, lambda x: "INCORRECT ANSWER" in x)
+        wrong_answer_idx = ut.find_first_idx(lines, lambda x: match_strs["incorrect"] in x)
 
     assert wrong_answer_idx is not None, f"generated_qa: {generated_qa!r}"
 
-    correct_answer_lines =  [re.sub(" *CORRECT ANSWER *:?", "", ln )
+    correct_answer_lines =  [re.sub(" *" + match_strs["correct"]+ " *:?", "", ln )
                              for ln in lines[correct_answer_idx:wrong_answer_idx]]
 
     correct_answer = " ".join(correct_answer_lines)
@@ -148,8 +220,8 @@ def parse_generated_question(generated_qa: str):
 
     for i in range(3):
         answer = lines[wrong_answer_idx + i]
-        if "INCORRECT ANSWER" in answer:
-            clean_answer = re.sub(" *INCORRECT ANSWER *[0-9]+:?", "", answer)
+        if match_strs["incorrect"] in answer:
+            clean_answer = re.sub(" *" + match_strs["incorrect"] +" *[0-9]+:?", "", answer)
             ret["incorrect_answers"].append(clean_answer.strip())
 
     return ret

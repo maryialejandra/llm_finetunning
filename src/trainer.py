@@ -55,7 +55,7 @@ class Trainer:
         print(f'Entrenando por {max_steps} pasos. {max_epochs} epochs')
         print(f'Nota Importante:\n    El `Train Loss` que se reporta se calcula únicamente sobre los datos'
               f' de los últimos {accum_grad_steps} pasos de entrenamiento.\n'
-              '    El `Valid Loss` es sobre *todos* los datos de validación')
+              '    El `Valid Loss` es sobre *todos* los datos de validación\n')
 
         # used for logging every steps_per_log steps
         log_train_losses = []

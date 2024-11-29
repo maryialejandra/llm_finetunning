@@ -5,12 +5,13 @@
 # 3. This will clone the repo in the Colab machine
 
 import os
-from pathlib import Path
 import subprocess
+from subprocess import Popen
 
 from google.colab import userdata
 
 REPO_URL = "https://github.com/maryialejandra/llm_finetunning"
+REPO_LOCAL_DIR = REPO_URL.split("/")[-1]
 
 def on_import():
 
@@ -20,30 +21,66 @@ def on_import():
 
     # !ls -lrt /root/.git-credentials
     print("Contents of /roo/.git-credentials:")
-    subprocess.call(['ls', '-lrt', '/root/.git-credentials'])
+    # subprocess.call(['ls', '-lrt', '/root/.git-credentials'])
+    run_cmd('ls -lrt /root/.git-credentials')
 
     # !git config --global credential.helper store':
-    subprocess.call(['git', 'config', '--global', 'credential.helper', 'store'])
-
+    # subprocess.call(['git', 'config', '--global', 'credential.helper', 'store'])
+    run_cmd('git config --global credential.helper store')
     # %cd /content
     os.chdir('/content')
 
-    repo_local_dir = REPO_URL.split("/")[-1]
-
+    repo_local_dir = REPO_LOCAL_DIR
     if not os.path.exists(repo_local_dir):
-        print(f"{repo_local_dir} directory does not exist. Attempting git clone")
-        subprocess.call(["git" "clone", REPO_URL, "./llm_finetunning"])
-        os.chdir(repo_local_dir)
-        subprocess.call(['ls', '-lrt', './'])
+        print(f"{repo_local_dir} directory does not exist. Attempting git clone...")
+        clone()
     else:
-        print( f"{repo_local_dir} directory already exists. Attempting git pull" )
-        os.chdir(repo_local_dir)
-        subprocess.call(['git', 'pull'])
+        print(f"{repo_local_dir} directory already exists. Attempting git pull.." )
+        pull()
+
+    print(f"Current working directory is: {os.getcwd()}")
+
+
+def clone():
+    repo_local_dir = REPO_LOCAL_DIR
+    os.chdir('/content')
+    run_cmd(f"git clone {REPO_URL} ./{repo_local_dir}")
+    os.chdir(repo_local_dir)
+    print(f"\nRepo local dir ({repo_local_dir}) contents:")
+    run_cmd('ls -lrt ./')
+
+def pull():
+    repo_local_dir = REPO_LOCAL_DIR
+    os.chdir(repo_local_dir)
+    subprocess.call(['git', 'pull'])
 
 
 def run_cmd(a_str: str):
     cmd_parts = a_str.split(" ")
-    subprocess.call(cmd_parts, stdout=subprocess.PIPE)
+    p = Popen(cmd_parts, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+
+    stdout, stderr = p.communicate()
+    if stdout and len(stdout) > 0:
+        print("STDOUT:")
+        for line in stdout.split(b"\n"):
+            print(try_decode(line))
+
+    if stderr and len(stderr) > 0:
+        print("stderr:", stderr)
+        for line in stderr.split(b"\n"):
+            print(try_decode(line))
+
+
+def try_decode(line: bytes) -> str:
+    try:
+        return line.decode("ascii")
+    except Exception:
+        try:
+          return line.decode("utf8")
+        except Exception:
+          return f"FAILED decoding: {line!r}"
+
+
 
 
 on_import()

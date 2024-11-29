@@ -42,41 +42,37 @@ class GroqTranslator:
             if verbose:
                 print(f"==========PROMPT=====\n{prompt}\n====================")
 
-            try:
-                client = self.clients[self.client_idx]
-                chat_completion = client.chat.completions.create(
-                    messages=[{
-                        "role": "user",
-                        "content": prompt
-                    }],
-                    model=self.groq_model
-                )
-                # print(chat_completion.usage)
-                usage = chat_completion.usage
-                self.prompt_tokens += usage.prompt_tokens
-                self.completion_tokens += usage.completion_tokens
-                self.queue_time += usage.queue_time
-                self.total_time += usage.total_time
+            while True:
+                try:
+                    client = self.clients[self.client_idx]
+                    chat_completion = client.chat.completions.create(
+                        messages=[{
+                            "role": "user",
+                            "content": prompt
+                        }],
+                        model=self.groq_model
+                    )
+                    # print(chat_completion.usage)
+                    usage = chat_completion.usage
+                    self.prompt_tokens += usage.prompt_tokens
+                    self.completion_tokens += usage.completion_tokens
+                    self.queue_time += usage.queue_time
+                    self.total_time += usage.total_time
 
-                translation_text = chat_completion.choices[0].message.content
-                self.cache[spanish_text] = translation_text.strip("'").strip('"')
+                    translation_text = chat_completion.choices[0].message.content
+                    self.cache[spanish_text] = translation_text.strip("'").strip('"')
 
-                time.sleep(self.pause_secs)
+                    time.sleep(self.pause_secs)
+                    print(f"English translation: {translation_text[0:45]}...{translation_text[-45:]}")
+                    return translation_text.strip("'")
 
-            except RateLimitError as rlerr:
+                except RateLimitError as rlerr:
                     self.client_idx = (self.client_idx + 1) % len(self.clients)
                     print(f"Rate limit error: {rlerr} retrying with new client: {self.client_idx}")
 
-            except Exception as exc:
-                raise exc
-
-        print(f"English translation: {translation_text[0:45]}...{translation_text[-45:]}")
-
-        return translation_text.strip("'")
-
 
 def translate_file(file_prefix: str, translator: GroqTranslator) -> None:
-    input_lines = Path(f"../data/{file_prefix}.preprocessed.txt").read_text().split("\n")
+    input_lines = Path(f"../data/{file_prefix}.txt").read_text().split("\n")
     print(f"{len(input_lines)} input lines ")
     n_lines = len(input_lines)
 
