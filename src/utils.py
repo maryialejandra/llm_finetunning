@@ -1,4 +1,5 @@
 import gc
+import json
 import math
 import os
 import random
@@ -7,7 +8,6 @@ import time
 
 from pathlib import Path
 from typing import Generator, TypeVar, Callable
-
 
 import huggingface_hub as hf_hub
 import numpy as np
@@ -223,3 +223,23 @@ def load_raw_model() -> nn.Module:
     model_raw.eval()
 
     return model_raw
+
+def jsonl_to_df(fpath: Path) -> pd.DataFrame:
+    dics = [json.loads(line) for line in fpath.open("rt").readlines()]
+    print(f"{fpath!s} len(lines):", len(dics))
+    return pd.DataFrame(dics)
+
+
+from torch import Tensor
+from transformers.tokenization_utils_base import BatchEncoding
+
+
+def to_device(obj: Tensor | dict[str, Tensor] | BatchEncoding, device: str):
+    if isinstance(obj, Tensor):
+        return obj.to(device)
+    elif isinstance(obj, dict):
+        return {k: to_device(v, device) for k, v in obj.items()}
+    elif isinstance(obj, BatchEncoding):
+        return BatchEncoding({k: to_device(v, device) for k, v in obj.items()})
+    else:
+        raise ValueError(f"Unsupported type: {type(obj)}")
