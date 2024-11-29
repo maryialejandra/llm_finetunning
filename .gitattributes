@@ -24,3 +24,5 @@ data/Estatutos-Universidad-de-los-Andes-2020-ratificados-MEN-RQ.preprocessed2.tr
 data/Estatutos-Universidad-de-los-Andes-2020-ratificados-MEN-RQ.preprocessed2.txt filter=lfs diff=lfs merge=lfs -text
 data/reglamento-maestria-web-2024.manually-cleaned.txt filter=lfs diff=lfs merge=lfs -text
 data/reglamento-maestria-web-2024.preprocessed2.translated.txt filter=lfs diff=lfs merge=lfs -text
+data/Estatutos-Universidad-de-los-Andes-2020-ratificados-MEN-RQ.preprocessed2.qa.jsonl filter=lfs diff=lfs merge=lfs -text
+data/reglamento-maestria-web-2024.preprocessed2.qa.jsonl filter=lfs diff=lfs merge=lfs -text
