@@ -2,3 +2,5 @@ reglamento-maestria-web-2024.manually-cleaned.txt filter=lfs diff=lfs merge=lfs 
 Estatutos-Universidad-de-los-Andes-2020-ratificados-MEN-RQ.manually-cleaned.txt filter=lfs diff=lfs merge=lfs -text
 Estatutos-Universidad-de-los-Andes-2020-ratificados-MEN-RQ.preprocessed2.txt filter=lfs diff=lfs merge=lfs -text
 reglamento-maestria-web-2024.preprocessed2.txt filter=lfs diff=lfs merge=lfs -text
+Estatutos-Universidad-de-los-Andes-2020-ratificados-MEN-RQ.preprocessed2.qa.jsonl filter=lfs diff=lfs merge=lfs -text
+reglamento-maestria-web-2024.preprocessed2.qa.jsonl filter=lfs diff=lfs merge=lfs -text

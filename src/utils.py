@@ -109,7 +109,7 @@ def login_to_hf_hub(hf_token: str | None = None):
     If successful login to huggingface hub with said token.
     """
 
-    hf_token = get_secret("HF_API_KEY", hf_token)
+    hf_token = get_secret("HF_TOKEN", hf_token)
     hf_hub.login(token=hf_token)
 
 def module_device(mod: nn.Module) -> str:

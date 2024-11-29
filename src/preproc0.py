@@ -79,6 +79,8 @@ def process_raw_lines_maestria(raw_lines: list[str]):
     out_lines: list[str] = []
 
     for i, line in enumerate(raw_lines):
+        line = line.strip().strip("\x0c")
+
         if line == "":
             out_lines.append(line)
             continue
@@ -96,7 +98,7 @@ def process_raw_lines_maestria(raw_lines: list[str]):
             else: # not first time seen, skip:
                 skipped_x0c.add(line)
                 skip_counts["\x0c"] += 1
-                print(f"skipping x0c-line: {line}")
+                print(f"skipping x0c-line: {line!r}")
 
         elif re.search("^[0-9]+\.", line):
             out_lines.extend([current_line, "\n"])
@@ -201,3 +203,30 @@ assert squeeze_blank_lines(["a", "", "", "", "b"]) == ["a", "", "b"]
 assert squeeze_blank_lines(["a", "", ""]) == ["a", ""]
 assert squeeze_blank_lines(["a", "", "", "a", "", ""]) == ["a", "", "a", ""]
 assert squeeze_blank_lines(["a", "a", "", ""]) == ["a", "a", ""]
+
+
+def preproc2(lines: list[str]) -> list[str]:
+    """Precede every line strting with "Artículo" with the chapter title, to give more context.
+
+    """
+    out_lines = []
+
+    last_chapter_title = None
+    last_non_item = None
+
+    for line in lines:
+        if re.search("^(# )?CAP.TULO +", line):
+            last_chapter_title = line.split(".")[1].strip()
+
+        if re.search("^(## )?Art.culo +[0-9]+", line):
+            line = last_chapter_title + " - " + line
+
+        if re.search("^([0-9]+|[a-zA-Z])[.)]", line):  # numbered item"línea numeral"
+            line = last_non_item + " " + line
+        elif line.strip() != "":
+            last_non_item = line.strip()
+
+        out_lines.append(line)
+
+    return out_lines
+

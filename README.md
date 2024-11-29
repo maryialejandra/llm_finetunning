@@ -9,3 +9,10 @@ Ideas:
 
 Idea: Generate Questions Dataset with something like this
 https://docs.llamaindex.ai/en/stable/examples/cookbooks/oreilly_course_cookbooks/Module-3/Evaluating_RAG_Systems/
+
+
+Preprocessing order:
+
+- <file>.PDF -> [Online conversion tool] -> <file>.raw.txt
+- <file>.raw.txt -> [preprocessed-teo.ipynb] -> <file>.preprocessed.txt (join some lines)
+- <file>.preprocessed.txt -> [manual editing]  -> <file>.manually-cleaned.txt
