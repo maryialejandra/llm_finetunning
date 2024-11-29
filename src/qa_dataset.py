@@ -8,7 +8,7 @@ from transformers import AutoTokenizer
 from src.utils import letter_to_idx
 from src.batch_enc_utils import batch_enc_apply, batch_enc_cat, pad_batch_1d_to_len
 
-PROMPT_TMPL_VER1 = """Please answer the question following question according to the best of your knowledge of \
+PROMPT_TMPL_ENG_VER1 = """Please answer the question following question according to the best of your knowledge of \
     *Universidad de los Andes regulations*:
 {question}
 
@@ -18,15 +18,24 @@ Here are the answer choices:
 The correct answer is:"""
 
 
-def question_formatter_ver1(row: pd.Series) -> str:
-    """Genera el texto de la pregunta usando PROMPT_TMPL_VER1 que _sí_ incluye
+PROMPT_TMPL_SPA_VER1 = """Por favor responde la pregunta siguiente pregunta de acuerdo
+con tus conocimientos acerca del Reglamento de la Universidad de los Andes:
+{question}
+
+Las opciones de respuesta son
+{choices}
+
+Según tu conocimiento la respuesta correcta es: """
+
+def question_formatter_ver1(row: pd.Series, tmpl_str: str) -> str:
+    """Genera el texto de la pregunta usando tmpl_str que _sí_ incluye
     una lista de opciones de respuesta."""
     options = row["options"]
     assert isinstance(options, np.ndarray | list) and len(options) == 4, \
             f"options must be a list of 4 strings {options!r}"
 
     choices = [ f"{letter}. {options[idx]}"  for idx, letter in enumerate(["A", "B", "C", "D"])]
-    return (PROMPT_TMPL_VER1.format(question=row['question'], choices="\n".join(choices)))
+    return tmpl_str.format(question=row['question'], choices="\n".join(choices))
 
 def answer_formatter_ver1(row: pd.Series, letter: str) -> str:
     """Retorna la respuesta correspondiente a la letra `letter` (A, B, C o D) en el formato `{letter}. {respuesta}`"""
@@ -35,7 +44,10 @@ def answer_formatter_ver1(row: pd.Series, letter: str) -> str:
     return f"{letter}. {answer_full}"
 
 FORMATTERS = {
-    "ver1": (question_formatter_ver1, answer_formatter_ver1),
+    "eng-v1": (lambda row: question_formatter_ver1(row, PROMPT_TMPL_ENG_VER1),
+               answer_formatter_ver1),
+    "spa-v1": (lambda row: question_formatter_ver1(row, PROMPT_TMPL_SPA_VER1),
+               answer_formatter_ver1),
 }
 
 
