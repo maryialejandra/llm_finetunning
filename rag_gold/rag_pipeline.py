@@ -1,9 +1,11 @@
 # import logging
 #  import sys
 from typing import Any, List
+from collections import Counter
 
+import pandas as pd
 import faiss
-
+import re
 from tqdm import tqdm
 
 from llama_index.core import (
@@ -217,7 +219,6 @@ class VectorDBRetriever(BaseRetriever):
                                       "node_text": node.text,
                                       "score": score})
 
-
     def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         """Retrieve."""
         query_embedding = self._embed_model.get_query_embedding(
@@ -240,3 +241,116 @@ class VectorDBRetriever(BaseRetriever):
 
         return nodes_with_scores
 
+def extract_letter(ans: str, verbose=False) -> str:
+    m = re.match(r"([a-dA-D])(\)|\.)*", ans)
+    if m:
+        return m.group(1)
+    else:
+        if verbose:
+            print("???", ans)
+        return "?"
+
+
+def combine_answers_models(ans_vers):
+
+    ret_df = None
+    for model_key, file_path in ans_vers.items():
+        df = pd.read_csv(file_path)
+        assert df.columns[0] == 'ID'
+        df.columns = ['ID', model_key]
+        df[model_key] = df[model_key].apply(extract_letter)
+        if ret_df is None:
+            ret_df = df
+        else:
+            ret_df = pd.merge(ret_df, df, on='ID')
+
+        del df
+
+    ans_cols = [col for col in ret_df.columns if col != 'ID']
+    print(ans_cols)
+
+    def all_ans(row) -> str:
+        # print(row)
+        anss = [ row[col] for col in ans_cols ]
+        if len(set(anss)) == 1:
+            return anss[0]
+        else:
+            return '?'
+
+
+    def cnts(row) -> str:
+        return dict(Counter(row[ans_cols]))
+
+    def ans_agree_2(row) -> str:
+        """The ones that answered agree answer and they agree rest don't know"""
+        # print(row)
+
+        d = row['cnts'].copy()
+        if '?' in d:
+            del d['?']
+
+        if len(d) == 1 and next(iter(d.values())) >= 2:
+            return next(iter(d.keys()))
+        else:
+            return "?"
+
+
+    def ans_agree_1(row) -> str:
+        """The ones that answered agree answer and they agree rest don't know"""
+        # print(row)
+
+        d = row['cnts'].copy()
+        if '?' in d:
+            del d['?']
+
+        if len(d) == 1:
+            return next(iter(d.keys()))
+        else:
+            return "?"
+
+
+    ret_df['cnts'] = ret_df.apply(cnts, axis=1)
+    ret_df['all'] = ret_df.apply(all_ans, axis=1)
+    ret_df['ans_agree_1'] = ret_df.apply(ans_agree_1, axis=1)
+    ret_df['ans_agree_2'] = ret_df.apply(ans_agree_2, axis=1)
+
+    return ret_df
+
+
+def accuracy_metrics(fpath: str) -> dict[str, float]:
+    preds_df = pd.read_csv(fpath)
+
+    test_x_df = pd.read_csv("../data/test_uniandes_w_ans.csv")
+    ref_ans_cols = ["all", "ans_agree_1", "ans_agree_2"]
+
+    # map a -> 1, b -> 2, c -> 3, d -> 4
+    let_to_idx = dict(zip("abcd", [1, 2, 3, 4]))
+
+    for col in ref_ans_cols:
+        test_x_df[col] = test_x_df[col].map(lambda let: let_to_idx.get(let))
+    # print(test_x_df.head())
+
+    preds_df = preds_df.copy()
+    assert len(preds_df.columns) == 2
+    assert preds_df.columns[0] == "ID"
+    preds_df.columns = ["ID", "Respuesta"]
+    assert preds_df.shape[0] == 100
+    assert set(preds_df["ID"]) == set(range(1, 101))
+
+    grading_df = test_x_df[['ID'] + ref_ans_cols].merge(preds_df, on="ID")
+
+    ret = {}
+
+    print(f"estimated accuracy for: {str(fpath)}")
+    for col in ref_ans_cols:
+        ref_ans = test_x_df[col]
+        # print(col, ref_ans.isnull().sum())
+        has_ans = ref_ans.notna()
+        # print(list(has_ans))
+        correct = grading_df['Respuesta'][has_ans] == grading_df[col][has_ans]
+        n_correct = correct.sum()
+        n_total = has_ans.sum()
+        print(f"{col:15s}: {n_correct:2d}/{n_total:2d} = {n_correct / n_total:.4f}")
+        ret[col] = round(n_correct / n_total, 4)
+
+    return ret
