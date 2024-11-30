@@ -1,7 +1,6 @@
-# import logging
-#  import sys
 from typing import Any, List
 from collections import Counter
+from pathlib import Path
 
 import pandas as pd
 import faiss
@@ -10,12 +9,10 @@ from tqdm import tqdm
 
 from llama_index.core import (
     Document,
-    QueryBundle,
-    # Settings
+    QueryBundle
 )
 
 # from llama_index.core import SimpleDirectoryReader
-
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.schema import TextNode, NodeWithScore
@@ -317,11 +314,12 @@ def combine_answers_models(ans_vers):
     return ret_df
 
 
-def accuracy_metrics(fpath: str) -> dict[str, float]:
+def estimate_accuracy(fpath: str, leader_board: float = None,
+                      verbose: bool = False) -> dict[str, float]:
     preds_df = pd.read_csv(fpath)
 
     test_x_df = pd.read_csv("../data/test_uniandes_w_ans.csv")
-    ref_ans_cols = ["all", "ans_agree_1", "ans_agree_2"]
+    ref_ans_cols = ["ans_agree_1", "ans_agree_2", "all"]
 
     # map a -> 1, b -> 2, c -> 3, d -> 4
     let_to_idx = dict(zip("abcd", [1, 2, 3, 4]))
@@ -341,7 +339,11 @@ def accuracy_metrics(fpath: str) -> dict[str, float]:
 
     ret = {}
 
-    print(f"estimated accuracy for: {str(fpath)}")
+    leader_board = leader_board or float("nan")
+
+    if verbose:
+        print(f"Gold accuracy estimates for: {Path(fpath).name} ...")
+
     for col in ref_ans_cols:
         ref_ans = test_x_df[col]
         # print(col, ref_ans.isnull().sum())
@@ -350,7 +352,11 @@ def accuracy_metrics(fpath: str) -> dict[str, float]:
         correct = grading_df['Respuesta'][has_ans] == grading_df[col][has_ans]
         n_correct = correct.sum()
         n_total = has_ans.sum()
-        print(f"{col:15s}: {n_correct:2d}/{n_total:2d} = {n_correct / n_total:.4f}")
+        if verbose:
+            print(f"{col:15s}: {n_correct:2d}/{n_total:2d} = {n_correct / n_total:.4f}")
         ret[col] = round(n_correct / n_total, 4)
+
+    parts = [ f"{col}: {ret[col]:.4f}" for col in ref_ans_cols ]
+    print(f"{Path(fpath).name:40s} leaderboard: {leader_board:6.4f} - {' '.join(parts)}")
 
     return ret
