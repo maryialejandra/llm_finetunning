@@ -77,7 +77,7 @@ class TokenizedQAsDs(Dataset):
                  pad_to_len: int,
                  pad_value: int | None = None,
                  attention_pad_value: int = 0,
-                 device: str = "cpu"
+                 device: str|None = None
                  ) -> None:
 
         # Basic params
@@ -120,7 +120,10 @@ class TokenizedQAsDs(Dataset):
         return len(self.items)
 
     def __getitem__(self, idx: int) -> dict[str, Tensor]:
-        return ut.to_device(self.items[idx], self.device)
+        if self.device is not None:
+            return ut.to_device(self.items[idx], self.device)
+        else: 
+            return self.items[idx]
 
     # Funciones auxiliares para preprocesamiento del datast original y tokenización
     def preprocess_input(

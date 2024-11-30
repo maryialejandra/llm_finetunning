@@ -39,6 +39,7 @@ class Trainer:
               accum_grad_steps: int,
               steps_per_log: int = 5,
               pretrain_eval: bool = False,
+              token_counter: callable = None,
               ) -> nn.Module:
 
         opt = optim.Adam(model.parameters(), lr=self.lr)
@@ -50,7 +51,8 @@ class Trainer:
             # Makes sense in the case of pretrained models
             self.pretrain_eval(model, loss_fun)
 
-        max_epochs = int(math.ceil(max_steps / len(self.train_ds)))
+        steps_per_poch = len(self.train_ds) / (accum_grad_steps * self.train_batch_size)
+        max_epochs = int(math.ceil(max_steps / steps_per_poch))
 
         print(f'Entrenando por {max_steps} pasos. {max_epochs} epochs')
         print(f'Nota Importante:\n    El `Train Loss` que se reporta se calcula únicamente sobre los datos'
@@ -66,6 +68,10 @@ class Trainer:
         step = 0
         epoch_cnt = 0
 
+        if token_counter is None:
+            def token_counter(batch) -> int:
+                return batch['input_ids'].shape[1]
+
         train_dl = self.renew_train_dl()
         for step in range(max_steps):
             model.train()
@@ -78,11 +84,12 @@ class Trainer:
                 except StopIteration:
                     train_dl = self.renew_train_dl()
                     epoch_cnt += 1
-                    print(f"train_dl exhausted, resetting... epoch_cnt={epoch_cnt}")
+                    print(f"train_dl exhausted (step={step} mini_step={mini_step} ), "
+                          f"resetting... epoch_cnt={epoch_cnt}")
                     batch = next(train_dl)
 
                 batch = {k: v.to(self.device) for k, v in batch.items()}
-                self.token_cnt += batch['input_ids'].shape[1]
+                self.token_cnt += token_counter(batch)
 
                 loss = loss_fun(model, batch)
                 log_train_losses.append(loss.item())

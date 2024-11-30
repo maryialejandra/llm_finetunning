@@ -28,7 +28,8 @@ def gen_test_predictions_with_model(
         test_df,
         formatter_version=formatter_version,
         tokenizer=tokenizer,
-        pad_to_len=256
+        pad_to_len=256,
+        device=None
     )
 
     return predict_all(model, test_ds,

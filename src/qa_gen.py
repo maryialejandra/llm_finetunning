@@ -46,6 +46,29 @@ INCORRECT ANSWER 3: <incorrect answer 3 here>
 QUESTION:"""
 
 
+PROMPT_TMPL_ENG_V2: str = """
+Please generate one multiple choice question (with a single right answer and 3 wrong answers), based on the text given below:
+The question SHOULD NOT BE about chapter numbers, chapter titles or article numbers
+
+i.e. the expected format is as follows:
+
+```
+Question: <generated question here no more than 10 o 15 palabras and ending on a question mark>
+Right answer: <right answer here>
+Wrong answer 1: <wrong answer 1 here>
+Wrong answer 2: <wrong answer 2 here>
+Wrong answer 3: <wrong answer 3 here>
+
+
+The text about which you should generate generate the question is:
+```
+{chunk}
+```
+
+Question:"""
+
+
+
 PROMPT_TMPL_SPA_V0: str = """
 Por favor genera una pregunta de opción múltiple (con una única respuesta correcta y 3 respuestas incorrectas) a partir del fragmento de texto que te doy más abajo.
 La pregunta NO DEBE ser sobre números o títulos de artículos o capítulos.
@@ -93,9 +116,15 @@ Pregunta:"""
 
 
 MATCH_STRS_ENG: dict[str, str] = {
-    "question": "QUESTION:",
+    "question": "QUESTION",
     "correct": "CORRECT ANSWER",
     "incorrect": "INCORRECT ANSWER"
+}
+
+MATCH_STRS_ENG_V2: dict[str, str] = {
+    "question": "Question",
+    "correct": "Right answer",
+    "incorrect": "Wrong answer"
 }
 
 MATCH_STRS_SPA: dict[str, str] = {
@@ -107,6 +136,7 @@ MATCH_STRS_SPA: dict[str, str] = {
 PROMPTS_BY_VER: dict[str, tuple[str, dict[str, str]]] = {
     "eng-v0": (PROMPT_TMPL_ENG_V0, MATCH_STRS_ENG),
     "eng-v1": (PROMPT_TMPL_ENG_V1, MATCH_STRS_ENG),
+    "eng-v2": (PROMPT_TMPL_ENG_V2, MATCH_STRS_ENG_V2),
     "spa-v0": (PROMPT_TMPL_SPA_V0, MATCH_STRS_SPA),
     "spa-v1": (PROMPT_TMPL_SPA_V1, MATCH_STRS_SPA),
 }
@@ -119,10 +149,12 @@ class QAGenerator:
                  prompt_ver: str,
                  pause_secs: float = 2.0,
                  cache_enabled: bool = True,
+                 temperature: float = 0.0,
                  ):
         groq_api_keys = ut.get_secret(api_keys_var).split(";")
         print(f"{len(groq_api_keys)} Groq api keys loaded.")
         self.groq_model = groq_model
+        self.temperature = temperature
         self.pause_secs = pause_secs
         self.clients = [Groq(api_key=key) for key in groq_api_keys]
         self.client_idx = 0
@@ -159,7 +191,8 @@ class QAGenerator:
                             "role": "user",
                             "content": prompt
                         }],
-                        model=self.groq_model
+                        model=self.groq_model,
+                        temperature=self.temperature
                     )
                     usage = chat_completion.usage
                     self.prompt_tokens += usage.prompt_tokens
@@ -179,7 +212,8 @@ class QAGenerator:
                         self.cache[chunk] = generated_qa.strip("'").strip('"')
 
                     time.sleep(self.pause_secs)
-                    print(f"=== GENERATED QUESTION AND ANSWERS ====\n{generated_qa}\n=========================\n")
+                    if verbose:
+                        print(f"=== GENERATED QUESTION AND ANSWERS ====\n{generated_qa}\n=========================\n")
                     return generated_qa.strip("'")
 
                 except RateLimitError as rlerr:

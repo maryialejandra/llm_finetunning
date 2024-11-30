@@ -11,6 +11,9 @@ from llama_index.core import (
     QueryBundle,
     # Settings
 )
+
+# from llama_index.core import SimpleDirectoryReader
+
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.schema import TextNode, NodeWithScore
@@ -18,8 +21,12 @@ from llama_index.core.vector_stores import VectorStoreQuery
 from llama_index.core.vector_stores.types import BasePydanticVectorStore
 from llama_index.core.retrievers import BaseRetriever
 # from llama_index.core.vector_stores import SimpleVectorStore
+from llama_index.core.indices import VectorStoreIndex
+from llama_index.core.ingestion import IngestionPipeline
+
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.faiss import FaissVectorStore
+# from llama_index.vector_stores.weaviate import WeaviateVectorStore
 from llama_index.llms.groq import Groq
 
 
@@ -36,23 +43,35 @@ DEFAULT_EMB_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 GROQ_MODEL = "llama-3.1-70b-versatile"
 
 
-def make_query_engine(documents,
+def make_query_engine(documents: list[Document],
                       chunk_size: int = 288,
                       chunk_overlap: int = 100,
                       similarity_top_k: int = 5,
                       query_mode: str = "default",
                       embed_model: HuggingFaceEmbedding | None = None,
-                      llm = None
+                      llm = None,
+                      vs_type: str = "simple"
                       ) -> RetrieverQueryEngine:
 
     llm = llm or Groq(GROQ_MODEL, api_key=get_secret("GROQ_API_KEY"), temperature=0.1 )
     print(f"Using LLM={llm}")
     embed_model = embed_model or HuggingFaceEmbedding(DEFAULT_EMB_MODEL)
 
-    id_2_node, vector_store = populate_vecstore(documents,
-                                                chunk_size=chunk_size,
-                                                chunk_overlap=chunk_overlap,
-                                                embed_model=embed_model)
+    if vs_type == "simple":
+        vecstore_idx = make_vectore_index(embedding=embed_model,
+                                      documents=documents,
+                                      chunk_size=chunk_size,
+                                      chunk_overlap=chunk_overlap
+                                      )
+        vector_store = vecstore_idx.vector_store
+        id_2_node = vecstore_idx.docstore.docs
+    else:
+        id_2_node, vector_store = populate_vecstore_faiss(
+                                        documents,
+                                        chunk_size=chunk_size,
+                                        chunk_overlap=chunk_overlap,
+                                        embed_model=embed_model
+                                        )
     retriever = VectorDBRetriever(
         vector_store,
         id_2_node,
@@ -66,7 +85,27 @@ def make_query_engine(documents,
     return query_engine
 
 
-def populate_vecstore(
+
+def make_vectore_index(embedding: HuggingFaceEmbedding,
+                       documents: list[Document],
+                       chunk_size: int,
+                       chunk_overlap: int
+                       ) -> VectorStoreIndex:
+    # create the pipeline with transformations
+    pipeline = IngestionPipeline(
+        transformations=[
+            SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap),
+            embedding
+        ]
+    )
+
+# run the pipeline
+    nodes = pipeline.run(documents=documents)
+
+    return VectorStoreIndex(nodes, show_progress=True)
+
+
+def populate_vecstore_faiss(
         documents: list[Document],
         chunk_size: int,
         chunk_overlap: int,
@@ -85,7 +124,7 @@ def populate_vecstore(
     nodes = make_text_nodes(documents, text_parser)
     compute_embeddings_ip(nodes, embed_model)
 
-    id_2_node, vec_store = make_vec_store(nodes, embed_dim)
+    id_2_node, vec_store = make_vec_store_faiss(nodes, embed_dim)
 
     return id_2_node, vec_store
 
@@ -121,7 +160,8 @@ def compute_embeddings_ip(nodes: list[TextNode],
         node.embedding = node_embedding
 
 
-def make_vec_store(nodes: list[TextNode], embed_dim: int):
+def make_vec_store_faiss(nodes: list[TextNode], embed_dim: int):
+
     faiss_index = faiss.IndexFlatL2(embed_dim)
     vector_store = FaissVectorStore(faiss_index=faiss_index)
     # vector_store = SimpleVectorStore()
@@ -152,6 +192,30 @@ class VectorDBRetriever(BaseRetriever):
         self._query_mode = query_mode
         self._similarity_top_k = similarity_top_k
         self._verbose = verbose
+
+
+    def _debug_query(self, query: str):
+        query_embedding = self._embed_model.get_query_embedding(
+            query
+        )
+
+        vector_store_query = VectorStoreQuery(
+            query_embedding=query_embedding,
+            similarity_top_k=self._similarity_top_k,
+            mode=self._query_mode,
+        )
+
+        query_result = self._vector_store.query(vector_store_query)
+
+        nodes_with_scores = []
+        for idx, node_id in enumerate(query_result.ids):
+            node = self._id_2_node[node_id]
+            score = query_result.similarities[idx]
+            if self._verbose:
+                print(f"\n==== idx: {idx}  node_id: {node_id}  SCORE: {score:.4f}====\n{node.get_text()}\n")
+            nodes_with_scores.append({"node_id": node_id,
+                                      "node_text": node.text,
+                                      "score": score})
 
 
     def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:

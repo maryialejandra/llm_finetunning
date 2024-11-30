@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import torch as pt
 
+import torch as pt
 from torch import nn
 from torch import Tensor
 from transformers.tokenization_utils_base import BatchEncoding
@@ -111,7 +112,7 @@ def login_to_hf_hub(hf_token: str | None = None):
     If successful login to huggingface hub with said token.
     """
 
-    hf_token = get_secret("HF_TOKEN", hf_token)
+    hf_token = get_secret("HF_API_KEY", hf_token)
     hf_hub.login(token=hf_token)
 
 def module_device(mod: nn.Module) -> str:
@@ -231,7 +232,7 @@ def jsonl_to_df(fpath: Path) -> pd.DataFrame:
     print(f"{fpath!s} len(lines):", len(dics))
     return pd.DataFrame(dics)
 
-def to_device(obj: Tensor | dict[str, Tensor] | BatchEncoding, device: str):
+def to_device(obj: pt.Tensor | dict[str, pt.Tensor] | BatchEncoding, device: str):
     if isinstance(obj, Tensor):
         return obj.to(device)
     elif isinstance(obj, dict):
