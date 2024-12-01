@@ -263,12 +263,12 @@ A continuación, recibirás una pregunta junto con cuatro opciones de respuesta 
 
 
 def format_question_teo(example: dict[str, str] | pd.Series) -> str:
-    options = [f"Opcion{i+1}" for i in range(4)]
+    # options = [f"Opcion{i+1}" for i in range(4)]
     option_lines = [format_option_teo(example, i) for i, let in enumerate("ABCD")]
     options_text = "\n".join(option_lines)
 
     return f"""Responde la siguiente pregunta de selección única de acuerdo con tu conocimiento sobre los Estatutos y el Reglamento \
-de maestrías de la Universidad de los Andes. La Respuesta DEBE embezar por A, B, C o D.
+de maestrías de la Universidad de los Andes. La Respuesta DEBE embezar por a, b, c o d.
 
 Pregunta: `{example["Pregunta"]}`
 
@@ -276,6 +276,27 @@ Las opciones de respuesta son:
 {options_text}
 
 La respuesta es:"""
+
+
+def format_question_teo_w_article(example: dict[str, str] | pd.Series) -> str:
+    option_lines = [format_option_teo(example, i) for i, let in enumerate("ABCD")]
+    options_text = "\n".join(option_lines)
+
+    return f"""Responde la siguiente pregunta de selección única de acuerdo con tu conocimiento sobre los Estatutos y el Reglamento \
+de maestrías de la Universidad de los Andes y el texto que se da a continuación:
+```
+{example["source_chunk"]}
+```
+
+Pregunta: `{example["Pregunta"]}`
+
+Las opciones de respuesta son:
+{options_text}
+
+La Respuesta DEBE embezar por a), b), c) o d).
+
+La respuesta es:"""
+
 
 
 def format_option_teo(example: dict[str, str] | pd.Series,
