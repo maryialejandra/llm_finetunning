@@ -78,7 +78,7 @@ class Trainer:
             # for step in range(max_steps):
 
             opt.zero_grad()
-            for _mini_step in range(accum_grad_steps):
+            for mini_step in range(accum_grad_steps):
                 try:
                     batch = next(train_dl)
                 except StopIteration:
