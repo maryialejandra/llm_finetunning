@@ -1,16 +1,19 @@
 from pathlib import Path
 
 import pandas as pd
+import numpy as np
 import torch as pt
 import tqdm
 from torch import nn, Tensor
 from torch.utils.data import DataLoader
+from torch.nn.functional import softmax
 from transformers import AutoTokenizer
 from transformers.tokenization_utils_base import BatchEncoding
 
 import src.utils as ut
 from src.qa_dataset import TokenizedQAsDs
 from src.utils import module_device, letter_to_idx
+
 
 
 def gen_test_predictions_with_model(
@@ -162,7 +165,7 @@ def predict_best_answer_v1(model, tokenizer: AutoTokenizer,
   model.eval()  # Set model to evaluation mode
   device = ut.module_device(model)
 
-  with torch.no_grad():
+  with pt.no_grad():
         if not isinstance(example, dict | pd.Series):
             raise TypeError(f"Expected a dictionary or series, but got {type(example)}: {example}")
 
@@ -214,7 +217,7 @@ def predict_best_answer_v1(model, tokenizer: AutoTokenizer,
             elif logit_aggr == "sum":
                 pass
             else:
-                raise ValueError(f"Unknown prob_agg: {prob_agg}")
+                raise ValueError(f"Unknown prob_agg: {logit_aggr}")
 
             # print("question", example["Pregunta"],  i, option, option_score)
             option_scores.append(option_score)
@@ -234,7 +237,7 @@ def answer_all_and_save(test_df: pd.DataFrame,
     answers = {}
     for _, row in tqdm(test_df.iterrows()):
         # answer here is one of 0, 1, 2, 3
-        answers[ row['ID'] ] = predict_best_answer(model, tokenizer, row,
+        answers[ row['ID'] ] = predict_best_answer_v1(model, tokenizer, row,
                                                    logit_aggr=logit_aggr,
                                                    question_formatter=question_formatter)
 
@@ -243,24 +246,22 @@ def answer_all_and_save(test_df: pd.DataFrame,
     df.columns = ["ID", "Respuesta"]
 
     fmt_name = question_formatter.__name__
-    out_fpath = DATA_PATH / f"{model_desc}-{logit_aggr}-{fmt_name}.csv"
+    out_fpath = ut.DATA_PATH / f"{model_desc}-{logit_aggr}-{fmt_name}.csv"
     print("output saved to:", out_fpath )
     df.to_csv(out_fpath, index=False)
 
     return df
 
 
-from torch.nn.functional import softmax
-
 def get_highest_probability_option(model, tokenizer, example, device="cuda"):
     model.eval()  # Set model to evaluation mode
 
-    with torch.no_grad():
+    with pt.no_grad():
             if not isinstance(example, dict):
                 raise TypeError(f"Expected a dictionary, but got {type(example)}: {example}")
 
             # Prepare the input
-            options_text = "\n".join([f"{chr(65 + i)}) {opt}" for i, opt in enumerate([
+            _options_text = "\n".join([f"{chr(65 + i)}) {opt}" for i, opt in enumerate([
                 example["Opcion1"],
                 example["Opcion2"],
                 example["Opcion3"],
@@ -316,6 +317,7 @@ def answer_all_and_save_v0(
       test_df: pd.DataFrame,
       model: nn.Module,
       model_desc: str,
+      question_formatter,
       tokenizer: AutoTokenizer,
     ) -> pd.DataFrame:
     answers = {}
@@ -326,7 +328,7 @@ def answer_all_and_save_v0(
     df.columns = ["ID", "Respuesta"]
 
     fmt_name = question_formatter.__name__
-    out_fpath = DATA_PATH / f"{model_desc}-{fmt_name}-v0.csv"
+    out_fpath = ut.DATA_PATH / f"{model_desc}-{fmt_name}-v0.csv"
     print("output saved to:", out_fpath )
     df.to_csv(out_fpath, index=False)
 

@@ -1,6 +1,5 @@
 from typing import Any, List
 from collections import Counter
-from pathlib import Path
 
 import pandas as pd
 import faiss
@@ -304,7 +303,6 @@ def combine_answers_models(ans_vers):
             return next(iter(d.keys()))
         else:
             return "?"
-
 
     ret_df['cnts'] = ret_df.apply(cnts, axis=1)
     ret_df['all'] = ret_df.apply(all_ans, axis=1)
