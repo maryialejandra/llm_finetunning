@@ -151,3 +151,185 @@ def predict_answer_batch(
             ret["is_correct"] = ret["best_answer"] == ret["correct_answer_idx"]
 
         return ret
+
+
+def predict_best_answer_v1(model, tokenizer: AutoTokenizer,
+                        example: dict[str, str],
+                        question_formatter,
+                        logit_aggr: str = "sum",  # or "mean"
+                        verbose = True):
+  """Buggy do not use!"""
+  model.eval()  # Set model to evaluation mode
+  device = ut.module_device(model)
+
+  with torch.no_grad():
+        if not isinstance(example, dict | pd.Series):
+            raise TypeError(f"Expected a dictionary or series, but got {type(example)}: {example}")
+
+        # Prepare the input
+        input_text = question_formatter(example)
+
+        # Tokenize the input
+        input_ids = tokenizer(input_text, return_tensors="pt",
+                              truncation=True,
+                              # max_length=800
+                              ).input_ids.to(device)
+        # print(f"input_ids={input_ids[0, :5]}..{input_ids[0, -5:]}")
+
+        # Generate logits
+        # if verbose:
+        # print(f"len(input_text) = {len(input_text)}")
+        # print(f"input_ids.shape = {input_ids.shape}")
+
+        # probabilities = softmax(logits, dim=-1)
+
+        # Compute scores for each option
+        option_scores = []
+        logits = model(input_ids).logits[0]
+
+        for i in [1, 2, 3, 4]:
+            option = example[f"Opcion{i}"]
+
+            option_ids = tokenizer(option,
+                                  return_tensors="pt",
+                                  add_special_tokens=False
+                                  ).input_ids.to(device)
+
+            # model_input = pt.cat([input_ids, option_ids], dim=1)
+            # print(f"\n\nmodel_input.shape = {model_input.shape}")
+
+            # print(f"logits.shape = {logits.shape}")
+            # print(f"option {i}: len: {len(option)} option_ids.shape = {option_ids.shape}")
+            probs = pt.nn.functional.softmax(logits, dim=-1)
+            # print(f"probs: {probs.shape} {probs.sum(axis=1)}")
+
+            option_score = 0.
+            n_opt_tokens = option_ids.shape[1]
+            # print("n_opt_tokens", n_opt_tokens)
+            for ans_idx in range(n_opt_tokens):
+                option_score += probs[ans_idx, option_ids[0][ans_idx]].item()
+
+            if logit_aggr == "mean":
+                option_score /= n_opt_tokens
+            elif logit_aggr == "sum":
+                pass
+            else:
+                raise ValueError(f"Unknown prob_agg: {prob_agg}")
+
+            # print("question", example["Pregunta"],  i, option, option_score)
+            option_scores.append(option_score)
+
+        # Find the index of the highest probability option
+        return np.argmax(option_scores)
+
+
+
+def answer_all_and_save(test_df: pd.DataFrame,
+                        model: nn.Module,
+                        model_desc: str,
+                        tokenizer: AutoTokenizer,
+                        logit_aggr: str,
+                        question_formatter
+                        ) -> pd.DataFrame:
+    answers = {}
+    for _, row in tqdm(test_df.iterrows()):
+        # answer here is one of 0, 1, 2, 3
+        answers[ row['ID'] ] = predict_best_answer(model, tokenizer, row,
+                                                   logit_aggr=logit_aggr,
+                                                   question_formatter=question_formatter)
+
+    # make it one of 1, 2, 3, 4
+    df = pd.DataFrame(pd.Series(answers) + 1).reset_index()
+    df.columns = ["ID", "Respuesta"]
+
+    fmt_name = question_formatter.__name__
+    out_fpath = DATA_PATH / f"{model_desc}-{logit_aggr}-{fmt_name}.csv"
+    print("output saved to:", out_fpath )
+    df.to_csv(out_fpath, index=False)
+
+    return df
+
+
+from torch.nn.functional import softmax
+
+def get_highest_probability_option(model, tokenizer, example, device="cuda"):
+    model.eval()  # Set model to evaluation mode
+
+    with torch.no_grad():
+            if not isinstance(example, dict):
+                raise TypeError(f"Expected a dictionary, but got {type(example)}: {example}")
+
+            # Prepare the input
+            options_text = "\n".join([f"{chr(65 + i)}) {opt}" for i, opt in enumerate([
+                example["Opcion1"],
+                example["Opcion2"],
+                example["Opcion3"],
+                example["Opcion4"]
+            ])])
+            input_text = f"""PROMPT: Eres un modelo de lenguaje avanzado diseñado para responder preguntas de opción múltiple de manera precisa y directa.
+A continuación, recibirás una pregunta junto con cuatro opciones de respuesta (1, 2, 3, 4). Tu tarea es analizar cuidadosamente, identificar la única respuesta correcta y proporcionar únicamente el número correspondiente a esa respuesta sin incluir ningún comentario, justificación o explicación adicional.
+
+|Piensa paso a paso, de manera lógica y secuencial:
+1. Analizar cuidadosamente el enunciado de la pregunta y lo que solicita.
+2. Evaluar cada opción en relación con la pregunta utilizando hechos, lógica y contexto.
+3. Descartar todas las opciones incorrectas mediante razonamiento lógico.
+4. Seleccionar la única respuesta correcta.
+
+|Normas de respuesta:
+    -Tu respuesta final debe ser exclusivamente el número correspondiente a la opción correcta: 1, 2, 3 o 4.
+    -Respuesta estrictamente LIMITADA a 1 carácter.
+    -No incluyas explicaciones adicionales ni comentarios.
+
+|A continuación recibirás la Pregunta: {example["Pregunta"]}
+|Opción 1: {example["Opcion1"]}
+|Opción 2: {example["Opcion2"]}
+|Opción 3: {example["Opcion3"]}
+|Opción 4: {example["Opcion4"]}"""
+
+            # Tokenize the input
+            input_ids = tokenizer(input_text, return_tensors="pt", truncation=True, max_length=800).input_ids.to(device)
+
+            # Generate logits
+            logits = model(input_ids).logits
+            probabilities = softmax(logits, dim=-1)
+
+            # Compute scores for each option
+            option_scores = []
+            for i, option in enumerate([
+                example["Opcion1"],
+                example["Opcion2"],
+                example["Opcion3"],
+                example["Opcion4"]
+            ]):
+                option_ids = tokenizer(option, return_tensors="pt", add_special_tokens=False).input_ids.to(device)
+                option_score = probabilities[0, :, option_ids].sum().item()  # Sum of probabilities
+                option_scores.append(option_score)
+
+            # Find the index of the highest probability option
+            highest_prob_index = np.argmax(option_scores)
+            # highest_prob_indices.append(highest_prob_index)  # Append the index (0 for Opcion1, etc.)
+
+    return highest_prob_index
+
+
+def answer_all_and_save_v0(
+      test_df: pd.DataFrame,
+      model: nn.Module,
+      model_desc: str,
+      tokenizer: AutoTokenizer,
+    ) -> pd.DataFrame:
+    answers = {}
+    for _, row in tqdm(test_df.iterrows()):
+        answers[ row['ID'] ] = get_highest_probability_option(model, tokenizer, row.to_dict())
+
+    df = pd.DataFrame(pd.Series(answers) + 1).reset_index()
+    df.columns = ["ID", "Respuesta"]
+
+    fmt_name = question_formatter.__name__
+    out_fpath = DATA_PATH / f"{model_desc}-{fmt_name}-v0.csv"
+    print("output saved to:", out_fpath )
+    df.to_csv(out_fpath, index=False)
+
+    return df
+
+

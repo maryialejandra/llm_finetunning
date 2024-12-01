@@ -14,13 +14,15 @@ import numpy as np
 import pandas as pd
 import torch as pt
 
-import torch as pt
 from torch import nn
 from torch import Tensor
 from transformers.tokenization_utils_base import BatchEncoding
 from transformers import AutoModelForCausalLM
 
 T = TypeVar('T')
+
+DATA_PATH = Path("../data")
+# this can be overriden from notebook as: ut.DATA_PATH = Path("some_other/path")
 
 LLAMA_MODEL_ID = "meta-llama/Llama-3.2-1B"
 
@@ -126,6 +128,7 @@ def free_gpu_memory() -> None:
     print(f"before freeing: {gpu_mem_info()}")
     gc.collect()
     pt.cuda.empty_cache()
+    pt.cuda.ipc_collect()
     print(f"after  freeing: {gpu_mem_info()}")
 
 def gpu_mem_info() -> dict[str, float]:
@@ -242,3 +245,52 @@ def to_device(obj: pt.Tensor | dict[str, pt.Tensor] | BatchEncoding, device: str
         return BatchEncoding({k: to_device(v, device) for k, v in obj.items()})
     else:
         raise ValueError(f"Unsupported type: {type(obj)}")
+
+
+
+def estimate_accuracy(fpath: str, leader_board: float = None,
+                      verbose: bool = False) -> dict[str, float]:
+    preds_df = pd.read_csv(fpath)
+
+    test_x_df = pd.read_csv(DATA_PATH / "test_uniandes_w_ans.csv")
+    ref_ans_cols = ["ans_agree_1", "ans_agree_2", "all"]
+
+    # map a -> 1, b -> 2, c -> 3, d -> 4
+    let_to_idx = dict(zip("abcd", [1, 2, 3, 4]))
+
+    for col in ref_ans_cols:
+        test_x_df[col] = test_x_df[col].map(lambda let: let_to_idx.get(let))
+    # print(test_x_df.head())
+
+    preds_df = preds_df.copy()
+    assert len(preds_df.columns) == 2
+    assert preds_df.columns[0] == "ID"
+    preds_df.columns = ["ID", "Respuesta"]
+    assert preds_df.shape[0] == 100
+    assert set(preds_df["ID"]) == set(range(1, 101))
+
+    grading_df = test_x_df[['ID'] + ref_ans_cols].merge(preds_df, on="ID")
+
+    ret = {}
+
+    leader_board = leader_board or float("nan")
+
+    if verbose:
+        print(f"Gold accuracy estimates for: {Path(fpath).name} ...")
+
+    for col in ref_ans_cols:
+        ref_ans = test_x_df[col]
+        # print(col, ref_ans.isnull().sum())
+        has_ans = ref_ans.notna()
+        # print(list(has_ans))
+        correct = grading_df['Respuesta'][has_ans] == grading_df[col][has_ans]
+        n_correct = correct.sum()
+        n_total = has_ans.sum()
+        if verbose:
+            print(f"{col:15s}: {n_correct:2d}/{n_total:2d} = {n_correct / n_total:.4f}")
+        ret[col] = round(n_correct / n_total, 4)
+
+    parts = [ f"{col}: {ret[col]:.4f}" for col in ref_ans_cols ]
+    print(f"{Path(fpath).name:40s} leaderboard: {leader_board:6.4f} - {' '.join(parts)}")
+
+    return ret
