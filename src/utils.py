@@ -99,6 +99,7 @@ def get_secret(var_name: str,  value: str = None,
         value = userdata.get(var_name)
         if value is not None:
             print(f"Returning google.colab secret `{var_name}`=`{value[:2]}...{value[-2:]}`", )
+            return value
         else:
             print(f"Secret {var_name} not found in google.colab secrets")
 
