@@ -9,13 +9,15 @@ import time
 from pathlib import Path
 from typing import Generator, TypeVar, Callable
 
+import datasets as dss
 import huggingface_hub as hf_hub
 import numpy as np
 import pandas as pd
 import torch as pt
 
-from torch import nn
-from torch import Tensor
+from tqdm import tqdm
+from torch import nn, Tensor
+from torch.utils.data import DataLoader
 from transformers.tokenization_utils_base import BatchEncoding
 from transformers import AutoModelForCausalLM
 
@@ -247,7 +249,6 @@ def to_device(obj: pt.Tensor | dict[str, pt.Tensor] | BatchEncoding, device: str
         raise ValueError(f"Unsupported type: {type(obj)}")
 
 
-
 def estimate_accuracy(fpath: str, leader_board: float = None,
                       verbose: bool = False) -> dict[str, float]:
     preds_df = pd.read_csv(fpath)
@@ -294,3 +295,21 @@ def estimate_accuracy(fpath: str, leader_board: float = None,
     print(f"{Path(fpath).name:40s} leaderboard: {leader_board:6.4f} - {' '.join(parts)}")
 
     return ret
+
+def eval_next_token_loss(model: nn.Module, eval_ds: dss.Dataset, batch_size=4):
+    model.eval()
+    device = module_device(model)
+
+    eval_dl = DataLoader(eval_ds, batch_size=batch_size, shuffle=False)
+    total_loss = 0
+    for batch in tqdm(eval_dl):
+        batch = {k: pt.stack(v).transpose(0, 1).to(device) for k, v in batch.items()}
+        with pt.no_grad():
+            outputs = model(input_ids=batch['input_ids'],
+                            labels=batch['input_ids'],
+                            return_dict=True)
+            total_loss += outputs.loss.item()
+
+    return total_loss / len(eval_dl)
+
+
