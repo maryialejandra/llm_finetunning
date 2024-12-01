@@ -1,3 +1,5 @@
+from typing import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
@@ -226,7 +228,6 @@ def predict_best_answer_v1(model, tokenizer: AutoTokenizer,
         return np.argmax(option_scores)
 
 
-
 def answer_all_and_save(test_df: pd.DataFrame,
                         model: nn.Module,
                         model_desc: str,
@@ -335,3 +336,120 @@ def answer_all_and_save_v0(
     return df
 
 
+
+@dataclass
+class PredictorArgs:
+    model: nn.Module
+    model_desc: str
+    tokenizer: AutoTokenizer
+    question_formatter: Callable[[dict[str, str]], str]
+    option_formatter: Callable[[dict[str, str], int], str]
+    logit_aggr: str = "sum"  # or "mean"
+    max_len: int = 216
+    verbose = True
+
+def predict_best_answer(args: PredictorArgs, example: dict[str, str]) -> int:
+    """Return best option index for this example ()"""
+    args.model.eval()  # Set model to evaluation mode
+    device = ut.module_device(args.model)
+
+    assert isinstance(example, dict | pd.Series), \
+        f"Expected a dictionary or series, but got {type(example)}: {example}"
+
+    q_text = args.question_formatter(example)
+    q_ids = args.tokenizer(q_text, return_tensors="pt").input_ids.squeeze().to(device)  # shape: (q_ids_len,)
+    q_ids_len = q_ids.shape[0]
+
+    input_idss: list[Tensor] = []
+    mask_idss: list[Tensor] = []
+
+    eos_id = args.tokenizer.eos_token_id
+
+    # prepare inputs to model:
+    for i in range(4):
+        option_text = args.option_formatter(example, i)
+        option_ids = (args.tokenizer(
+                              option_text,
+                              return_tensors="pt",
+                              add_special_tokens=False
+                      )
+                      .input_ids.squeeze()
+                      .to(device))
+
+        # print(tokenizer.decode(option_ids))
+        opt_ids_len = option_ids.shape[0]
+
+        assert q_ids_len + opt_ids_len <= args.max_len
+        remainder = args.max_len - (q_ids_len + opt_ids_len)
+
+        input_ids = pt.cat([q_ids, option_ids,
+                            eos_id * pt.ones(remainder, dtype=pt.int64).to(device)
+                            ])
+        input_idss.append(input_ids)
+
+        # put ones in places corresponding to the option
+        mask_ids = pt.cat([pt.zeros(q_ids_len),
+                          pt.ones(opt_ids_len),
+                          pt.zeros(remainder)]
+                          ).to(device)
+
+        mask_idss.append(mask_ids)
+        # print('input_ids: ', input_ids)
+        # print('opt_ids', option_ids)
+        # print('input_ids', input_ids)
+        # print('mask_ids', mask_ids)
+        # print('input * mask', input_ids * mask_ids)
+
+    input_ids_stack = pt.stack(input_idss)
+    mask_ids_stack = pt.stack(mask_idss)
+
+    # predict:
+    outputs = args.model(
+        input_ids_stack.to(device),
+        use_cache=True,
+        return_dict=True
+    )
+    #print("output_logits.shape:  ", outputs.logits.shape)
+
+    # Gather logits:
+    # NEED TO SHIFT BY ONE both input_ids and masks HERE
+    # becaue logit[0] is prediction of input_id[1]
+
+    logits = outputs.logits[:, :-1, :]  # shape: [4, max_len - 1, vocab_size]
+    #print("logits-1.shape:       ", logits.shape)
+
+    idx = input_ids_stack[:, 1:].unsqueeze(-1) # shape: [4, max_len -1, 1]
+    # print("idx.shape:            ", idx.shape)
+
+    gathered_logits = logits.gather(dim=2, index=idx).squeeze()
+    # print(f"gathered_logits.shape={gathered_logits.shape}")
+    opts_logits = gathered_logits * mask_ids_stack[:, 1:]
+    if args.logit_aggr == "sum":
+        logits_aggred = opts_logits.sum(dim=1)
+    elif args.logit_aggr == "mean":
+        logits_aggred = opts_logits.sum(dim=1) / mask_ids_stack.sum(dim=1)
+    else:
+        raise ValueError(f"logit_aggr must be 'sum' or 'mean', but got {args.logit_aggr}")
+
+    best_idx = pt.argmax(logits_aggred).item()  # 0-based!
+    # print(f"best_idx: {best_idx}")
+    return best_idx
+
+
+def predict_best_answers_all(args: PredictorArgs, test_df: pd.DataFrame) \
+    -> tuple[pd.DataFrame, Path]:
+    answers = {}
+    for _, row in tqdm(test_df.iterrows()):
+        # answer here is one of 0, 1, 2, 3
+        answers[row['ID']] = predict_best_answer(args, row.to_dict())
+
+    # make it one of 1, 2, 3, 4
+    df = pd.DataFrame(pd.Series(answers) + 1).reset_index()
+    df.columns = ["ID", "Respuesta"]
+
+    fmt_name = args.question_formatter.__name__
+    out_fpath = ut.DATA_PATH / f"{args.model_desc}-{args.logit_aggr}-{fmt_name}.csv"
+    print("output saved to:", out_fpath )
+    df.to_csv(out_fpath, index=False)
+
+    return df, out_fpath

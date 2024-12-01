@@ -230,3 +230,30 @@ def preproc2(lines: list[str]) -> list[str]:
 
     return out_lines
 
+def format_question_simon(example: dict[str, str]) -> str:
+    # Not really used! options_text = "\n".join([f"{chr(65 + i)}) {opt}" for i, opt in enumerate([
+    #            example["Opcion1"],
+    #            example["Opcion2"],
+    #            example["Opcion3"],
+    #            example["Opcion4"]
+    # ])])
+
+    return f"""PROMPT: Eres un modelo de lenguaje avanzado diseñado para responder preguntas de opción múltiple de manera precisa y directa.
+A continuación, recibirás una pregunta junto con cuatro opciones de respuesta (1, 2, 3, 4). Tu tarea es analizar cuidadosamente, identificar la única respuesta correcta y proporcionar únicamente el número correspondiente a esa respuesta sin incluir ningún comentario, justificación o explicación adicional.
+
+|Piensa paso a paso, de manera lógica y secuencial:
+1. Analizar cuidadosamente el enunciado de la pregunta y lo que solicita.
+2. Evaluar cada opción en relación con la pregunta utilizando hechos, lógica y contexto.
+3. Descartar todas las opciones incorrectas mediante razonamiento lógico.
+4. Seleccionar la única respuesta correcta.
+
+|Normas de respuesta:
+    -Tu respuesta final debe ser exclusivamente el número correspondiente a la opción correcta: 1, 2, 3 o 4.
+    -Respuesta estrictamente LIMITADA a 1 carácter.
+    -No incluyas explicaciones adicionales ni comentarios.
+
+|A continuación recibirás la Pregunta: {example["Pregunta"]}
+|Opción 1: {example["Opcion1"]}
+|Opción 2: {example["Opcion2"]}
+|Opción 3: {example["Opcion3"]}
+|Opción 4: {example["Opcion4"]}"""
