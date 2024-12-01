@@ -1,6 +1,8 @@
 import re
 from collections import Counter
 from pathlib import Path
+import pandas as pd
+
 
 def process_raw_lines_estatutos(raw_lines: list[str]):
     """Preprocess raw text file:
@@ -230,6 +232,7 @@ def preproc2(lines: list[str]) -> list[str]:
 
     return out_lines
 
+
 def format_question_simon(example: dict[str, str]) -> str:
     # Not really used! options_text = "\n".join([f"{chr(65 + i)}) {opt}" for i, opt in enumerate([
     #            example["Opcion1"],
@@ -257,3 +260,26 @@ A continuación, recibirás una pregunta junto con cuatro opciones de respuesta 
 |Opción 2: {example["Opcion2"]}
 |Opción 3: {example["Opcion3"]}
 |Opción 4: {example["Opcion4"]}"""
+
+
+def format_question_teo(example: dict[str, str] | pd.Series) -> str:
+    options = [f"Opcion{i+1}" for i in range(4)]
+    option_lines = [format_option_teo(example, i) for i, let in enumerate("ABCD")]
+    options_text = "\n".join(option_lines)
+
+    return f"""Responde la siguiente pregunta de selección única de acuerdo con tu conocimiento sobre los Estatutos y el Reglamento \
+de maestrías de la Universidad de los Andes. La Respuesta DEBE embezar por A, B, C o D.
+
+Pregunta: `{example["Pregunta"]}`
+
+Las opciones de respuesta son:
+{options_text}
+
+La respuesta es:"""
+
+
+def format_option_teo(example: dict[str, str] | pd.Series,
+                      i: int # 0, 1, 2, 4
+                      ) -> str:
+    opt_key = f"Opcion{i + 1}"
+    return f"{chr(ord('a') + i)}) {example[opt_key]}"

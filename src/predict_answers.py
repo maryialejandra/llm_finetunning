@@ -17,6 +17,7 @@ from src.qa_dataset import TokenizedQAsDs
 from src.utils import module_device, letter_to_idx
 
 
+
 def gen_test_predictions_with_model(
             model: nn.Module,
             formatter_version: str = "ver1",
@@ -253,42 +254,19 @@ def answer_all_and_save(test_df: pd.DataFrame,
     return df
 
 
-def get_highest_probability_option(model, tokenizer, example, device="cuda"):
+def get_highest_probability_option(model, question_formatter, tokenizer, example):
+
     model.eval()  # Set model to evaluation mode
+    device = ut.module_device(model)
 
     with pt.no_grad():
-            if not isinstance(example, dict):
-                raise TypeError(f"Expected a dictionary, but got {type(example)}: {example}")
+            if not isinstance(example, dict | pd.Series):
+                raise TypeError(f"Expected a dictionary or Series, but got {type(example)}: {example}")
 
-            # Prepare the input
-            _options_text = "\n".join([f"{chr(65 + i)}) {opt}" for i, opt in enumerate([
-                example["Opcion1"],
-                example["Opcion2"],
-                example["Opcion3"],
-                example["Opcion4"]
-            ])])
-            input_text = f"""PROMPT: Eres un modelo de lenguaje avanzado diseñado para responder preguntas de opción múltiple de manera precisa y directa.
-A continuación, recibirás una pregunta junto con cuatro opciones de respuesta (1, 2, 3, 4). Tu tarea es analizar cuidadosamente, identificar la única respuesta correcta y proporcionar únicamente el número correspondiente a esa respuesta sin incluir ningún comentario, justificación o explicación adicional.
-
-|Piensa paso a paso, de manera lógica y secuencial:
-1. Analizar cuidadosamente el enunciado de la pregunta y lo que solicita.
-2. Evaluar cada opción en relación con la pregunta utilizando hechos, lógica y contexto.
-3. Descartar todas las opciones incorrectas mediante razonamiento lógico.
-4. Seleccionar la única respuesta correcta.
-
-|Normas de respuesta:
-    -Tu respuesta final debe ser exclusivamente el número correspondiente a la opción correcta: 1, 2, 3 o 4.
-    -Respuesta estrictamente LIMITADA a 1 carácter.
-    -No incluyas explicaciones adicionales ni comentarios.
-
-|A continuación recibirás la Pregunta: {example["Pregunta"]}
-|Opción 1: {example["Opcion1"]}
-|Opción 2: {example["Opcion2"]}
-|Opción 3: {example["Opcion3"]}
-|Opción 4: {example["Opcion4"]}"""
-
+            input_text = question_formatter(example)
             # Tokenize the input
-            input_ids = tokenizer(input_text, return_tensors="pt", truncation=True, max_length=800).input_ids.to(device)
+            input_ids = tokenizer(input_text, return_tensors="pt",
+                                  truncation=True, max_length=800).input_ids.to(device)
 
             # Generate logits
             logits = model(input_ids).logits
@@ -312,30 +290,6 @@ A continuación, recibirás una pregunta junto con cuatro opciones de respuesta 
 
     return highest_prob_index
 
-
-def answer_all_and_save_v0(
-      test_df: pd.DataFrame,
-      model: nn.Module,
-      model_desc: str,
-      question_formatter,
-      tokenizer: AutoTokenizer,
-    ) -> pd.DataFrame:
-    answers = {}
-    for _, row in tqdm(test_df.iterrows()):
-        answers[ row['ID'] ] = get_highest_probability_option(model, tokenizer, row.to_dict())
-
-    df = pd.DataFrame(pd.Series(answers) + 1).reset_index()
-    df.columns = ["ID", "Respuesta"]
-
-    fmt_name = question_formatter.__name__
-    out_fpath = ut.DATA_PATH / f"{model_desc}-{fmt_name}-v0.csv"
-    print("output saved to:", out_fpath )
-    df.to_csv(out_fpath, index=False)
-
-    return df
-
-
-
 @dataclass
 class PredictorArgs:
     model: nn.Module
@@ -346,6 +300,32 @@ class PredictorArgs:
     logit_aggr: str = "sum"  # or "mean"
     max_len: int = 216
     verbose = True
+
+
+def predict_best_answers_v0(test_df: pd.DataFrame,
+                           args: PredictorArgs) -> tuple[pd.DataFrame, Path]:
+    answers = {}
+    for _, row in tqdm(test_df.iterrows()):
+        answers[ row['ID'] ] = get_highest_probability_option(
+            args.model,
+            args.question_formatter,
+            args.tokenizer,
+            row.to_dict()
+        )
+
+    df = pd.DataFrame(pd.Series(answers) + 1).reset_index()
+    df.columns = ["ID", "Respuesta"]
+
+    fmt_name = args.question_formatter.__name__
+    out_fpath = ut.DATA_PATH / f"{args.model_desc}-{fmt_name}-v0.csv"
+    print("output saved to:", out_fpath )
+    df.to_csv(out_fpath, index=False)
+
+    return df, out_fpath
+
+
+
+
 
 def predict_best_answer(args: PredictorArgs, example: dict[str, str]) -> int:
     """Return best option index for this example ()"""
