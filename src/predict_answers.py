@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import torch as pt
-import tqdm
+from tqdm import tqdm
 from torch import nn, Tensor
 from torch.utils.data import DataLoader
 from torch.nn.functional import softmax
@@ -15,7 +15,6 @@ from transformers.tokenization_utils_base import BatchEncoding
 import src.utils as ut
 from src.qa_dataset import TokenizedQAsDs
 from src.utils import module_device, letter_to_idx
-
 
 
 def gen_test_predictions_with_model(
