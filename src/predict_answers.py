@@ -236,7 +236,8 @@ def answer_all_and_save(test_df: pd.DataFrame,
                         question_formatter
                         ) -> pd.DataFrame:
     answers = {}
-    for _, row in tqdm(test_df.iterrows()):
+    for _, row in tqdm(test_df.iterrows(), total=len(test_df),
+                       desc="predicting answers for test_df"):
         # answer here is one of 0, 1, 2, 3
         answers[ row['ID'] ] = predict_best_answer_v1(model, tokenizer, row,
                                                    logit_aggr=logit_aggr,
@@ -247,7 +248,8 @@ def answer_all_and_save(test_df: pd.DataFrame,
     df.columns = ["ID", "Respuesta"]
 
     fmt_name = question_formatter.__name__
-    out_fpath = ut.DATA_PATH / f"{model_desc}-{logit_aggr}-{fmt_name}.csv"
+    fname = f"{model_desc}_{logit_aggr}_{fmt_name}.csv".strip('.').strip('-')
+    out_fpath = ut.DATA_PATH / fname
     print("output saved to:", out_fpath )
     df.to_csv(out_fpath, index=False)
 
@@ -317,13 +319,12 @@ def predict_best_answers_v0(test_df: pd.DataFrame,
     df.columns = ["ID", "Respuesta"]
 
     fmt_name = args.question_formatter.__name__
-    out_fpath = ut.DATA_PATH / f"{args.model_desc}-{fmt_name}-v0.csv"
+    fname = f"{args.model_desc}_{fmt_name}-v0.csv".strip('.').strip('-')
+    out_fpath = ut.DATA_PATH / fname
     print("output saved to:", out_fpath )
     df.to_csv(out_fpath, index=False)
 
     return df, out_fpath
-
-
 
 
 
